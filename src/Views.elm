@@ -31,7 +31,6 @@ taskColumnView status list =
         onDrop <| DropTask status
       ] [
       h2 [] [ text status ],
-      span [] [ text (toString (List.length list) ++ " item(s)") ],
+      span [] [ text (String.fromInt (List.length list) ++ " item(s)") ],
       ul [] (List.indexedMap taskItemView list)
     ]
-

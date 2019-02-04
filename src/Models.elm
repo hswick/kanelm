@@ -1,33 +1,35 @@
-port module Models exposing (..)
+module Models exposing (..)
 
 type Msg = NoOp | KeyDown Int | TextInput String | Move Task | DropTask String | Delete String
 
-type alias Task = {
-    name: String,
-    status: String
-  }
+type alias Task =
+    { name: String
+    , status: String
+    }
 
-type alias Model = {
-  taskInput: String,
-  tasks: List Task,
-  movingTask: Maybe Task
-}
+type alias Model =
+    { taskInput: String,
+      tasks: List Task,
+      movingTask: Maybe Task
+    }
 
 -- PORTS
 
-port setStorage : Model -> Cmd msg
+-- port setStorage : Model -> Cmd msg
+
+setStorage : Model -> Cmd msg
+setStorage model =
+    Cmd.none
+                  
 
 saveData : Model -> ( Model, Cmd Msg )
 saveData model = ( model, setStorage model )
 
 -- INITIAL FUNCTION
 
-initModel : Maybe Model -> ( Model, Cmd msg )
-initModel model = 
-  case model of
-    Just model -> ( model, Cmd.none )
-    Nothing -> ( Model "" [] Nothing, Cmd.none )
-
+initModel : () -> ( Model, Cmd msg )
+initModel _ =
+    (Model "" [] Nothing, Cmd.none)
 
 -- ADD TASK
 

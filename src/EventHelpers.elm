@@ -3,6 +3,7 @@ module EventHelpers exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+
 import Json.Decode as Decode
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -15,9 +16,5 @@ onDragEnd : msg -> Attribute msg
 onDragEnd message = on "dragend" (Decode.succeed message)
 
 onDrop : msg -> Attribute msg
-onDrop message = onWithOptions "drop"
-                  { preventDefault = True,
-                    stopPropagation = False
-                  }
-                  (Decode.succeed message)
-
+onDrop message =
+    Html.Events.custom "drop" (Decode.succeed { message = message, preventDefault = True, stopPropagation = False })

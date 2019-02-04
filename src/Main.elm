@@ -1,4 +1,4 @@
-port module Main exposing (..)
+import Browser
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -8,14 +8,14 @@ import Models exposing (..)
 import Views exposing (..)
 import EventHelpers exposing (..)
 
+main =
+     Browser.element
+     { init = initModel
+     , update = update
+     , subscriptions = (always Sub.none)
+     , view = view
+     }
 
-main : Program (Maybe Model) Model Msg
-main = Html.programWithFlags {
-          init = initModel,
-          update = update,
-          subscriptions = (always Sub.none),
-          view = view
-        }
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
