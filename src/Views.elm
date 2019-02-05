@@ -33,7 +33,7 @@ taskItemView index task =
   li [ class "task-item"
      , attribute "draggable" "true"
      , onDragStart <| Move task
-     , attribute "ondragstart" "event.dataTransfer.setData('text/plain', '')"
+     , attribute "ondragstart" "event.dataTransfer.setData('text/plain', '')"         
      , css [ fontSize (px 14)
            , marginBottom (px 10)
            , padding4 (px 15) (px 40) (px 15) (px 15)
@@ -62,9 +62,9 @@ taskItemView index task =
                     , opacity (num 0.05)
                     , cursor pointer
                     , transition [ Css.Transitions.opacity 0.5 ]
-                    , fontSize (px 25)
+                    , fontSize (px 20)
                     , lineHeight (px 24)
-                    , textIndent (px -3)
+                    --, textIndent (px -3)
                     , transform (rotateZ (deg 45))
                     , hover [ opacity (num 1) ]
                     ]

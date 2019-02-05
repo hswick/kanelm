@@ -1,6 +1,6 @@
 # Kanelm - Kanban Board in Elm
 
-![](screenshot.gif)
+![](img/screenshot.gif)
 
 ## Run it locally
 
@@ -21,7 +21,7 @@ cp src/example.config.js src/config.js
 
 Create an account on https://jsonbin.io/ to obtain the Secret key, create a new JSON file on this site. Put the URL into your `config.js`. You can find your bin's URL here:
 
-![](jsonbin-url.png)
+![](img/jsonbin-url.png)
 
 Be sure to append a `https:` suffix to the API URL in the `config.js`, otherwise the built version in [kanban-app](https://github.com/huytd/kanban-app) won't work.
 
@@ -65,8 +65,8 @@ view model =
 
 Light theme
 
-![](light-theme.png)
+![](img/light-theme.png)
 
 Dark theme
 
-![](dark-theme.png)
+![](img/dark-theme.png)
