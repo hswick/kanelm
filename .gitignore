@@ -2,5 +2,5 @@ elm-stuff
 node_modules
 dist
 config.js
-static/index.html
+static/elm.min.js
 server
