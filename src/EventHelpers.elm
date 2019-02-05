@@ -1,8 +1,9 @@
 module EventHelpers exposing (..)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
+import Html
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
 
 import Json.Decode as Decode
 
@@ -17,4 +18,4 @@ onDragEnd message = on "dragend" (Decode.succeed message)
 
 onDrop : msg -> Attribute msg
 onDrop message =
-    Html.Events.custom "drop" (Decode.succeed { message = message, preventDefault = True, stopPropagation = False })
+    Html.Styled.Events.custom "drop" (Decode.succeed { message = message, preventDefault = True, stopPropagation = False })
