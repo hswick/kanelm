@@ -51,8 +51,8 @@ taskItemView index task =
               , css [ display block
                     , backgroundColor (hex "e74c3c")
                     , color (hex "fff")
-                    , Css.width (px 22)
-                    , Css.height (px 22)
+                    , Css.width (px 30)
+                    , Css.height (px 30)
                     , borderStyle none
                     , borderRadius (px 11)
                     , position absolute
@@ -68,7 +68,7 @@ taskItemView index task =
                     , transform (rotateZ (deg 45))
                     , hover [ opacity (num 1) ]
                     ]
-              ][ text "+" ]
+              ][ text "-" ]
      ]
 
 -- COLUMN VIEW
