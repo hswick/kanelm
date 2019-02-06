@@ -21,7 +21,7 @@ main =
 
 -- MODEL
 
-
+--TODO: Add Id field for unique identifier
 type alias Task =
     { name: String
     , status: String
@@ -37,7 +37,7 @@ type alias Model =
 init : () -> ( Model, Cmd msg )
 init _ =
     ( Model "" [], Cmd.none )
-
+        
 
 moveTaskToStatus : Task -> String -> List Task -> List Task
 moveTaskToStatus taskToFind newTaskStatus tasks =
@@ -80,22 +80,50 @@ type Msg =
     KeyDown Int
     | TextInput String
     | Delete String
+    | MoveLeft Task
+    | MoveRight Task
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  case msg of
+       case msg of
 
-    KeyDown key ->
-      if key == 13 then
-        ( { model | tasks = ( Task model.taskInput "Todo" ) :: model.tasks, taskInput = "" }, Cmd.none )
-      else
-        ( model, Cmd.none )
+            KeyDown key ->
+                    if key == 13 then
+                       ( { model | tasks = ( Task model.taskInput "Todo" ) :: model.tasks, taskInput = "" }, Cmd.none )
+                    else
+                       ( model, Cmd.none )
 
-    TextInput content ->
-       ( { model | taskInput = content }, Cmd.none )
+            TextInput content ->
+                      ( { model | taskInput = content }, Cmd.none )
 
-    Delete content -> deleteTask model content
+            Delete name ->
+                   deleteTask model name
+
+            MoveRight task ->
+                      case task.status of
+
+                           "Todo" ->
+                                  ( { model | tasks = moveTaskToStatus task "OnGoing" model.tasks }, Cmd.none )
+
+                           "OnGoing" ->
+                                     ( { model | tasks = moveTaskToStatus task "Done" model.tasks }, Cmd.none )
+
+                           _ ->
+                             ( model, Cmd.none )
+
+            MoveLeft task ->
+                     case task.status of
+
+                          "OnGoing" ->
+                                    ( { model | tasks = moveTaskToStatus task "Todo" model.tasks }, Cmd.none )
+
+                          "Done" ->
+                                 ( { model | tasks = moveTaskToStatus task "OnGoing" model.tasks }, Cmd.none )
+
+                          _ ->
+                            ( model, Cmd.none )
+        
 
 
 -- VIEW                      
@@ -177,32 +205,86 @@ taskItemView index task =
            ]
      ]
      [ text task.name
-     , button [ class "btn-delete"
-              , onClick <| Delete task.name
-              , css [ display block
-                    , backgroundColor (hex "e74c3c")
-                    , color (hex "fff")
-                    , Css.width (px 30)
-                    , Css.height (px 30)
-                    , borderStyle none
-                    , borderRadius (px 11)
-                    , position absolute
-                    , top (pct 50)
-                    , right (px 10)
-                    , marginTop (px -11)
-                    , opacity (num 0.05)
-                    , cursor pointer
-                    , transition [ Css.Transitions.opacity 0.5 ]
+     , moveLeftButton task
+     , moveRightButton task
+     --, deleteButton task         
+     ]
+
+
+deleteButton : Task -> Html Msg
+deleteButton task =
+    button [ class "btn-delete"
+             , onClick <| Delete task.name
+             , css [ display block
+                   , backgroundColor (hex "e74c3c")
+                   , color (hex "fff")
+                   , Css.width (px 30)
+                   , Css.height (px 30)
+                   , borderStyle none
+                   , borderRadius (px 11)
+                   , position absolute
+                   , top (pct 50)
+                   , right (px 10)
+                   , marginTop (px -11)
+                   , opacity (num 0.05)
+                   , cursor pointer
+                   , transition [ Css.Transitions.opacity 0.5 ]
+                   , fontSize (px 20)
+                   , lineHeight (px 24)
+                   , textIndent (px -3)
+                   , hover [ opacity (num 1) ]
+                   ]
+             ][ text "-" ]
+          
+          
+moveLeftButton : Task -> Html Msg
+moveLeftButton task =
+          button [ onClick <| MoveLeft task
+                 , css [ display block
+                       , backgroundColor (hex "e74c3c")
+                       , color (hex "fff")
+                       , Css.width (px 30)
+                       , Css.height (px 30)
+                       , borderStyle none
+                       , borderRadius (px 11)
+                       , position absolute
+                       , top (pct 50)
+                       , right (px 10)
+                       , marginTop (px -11)
+                       , opacity (num 0.05)
+                       , cursor pointer
+                       , transition [ Css.Transitions.opacity 0.5 ]
+                       , fontSize (px 20)
+                       , lineHeight (px 24)
+                       , textIndent (px -3)
+                       , hover [ opacity (num 1) ]
+                       ]
+                 ][ text "<" ]
+              
+              
+moveRightButton : Task -> Html Msg
+moveRightButton task =
+              button [ onClick <| MoveRight task
+                     , css [ display block
+                           , backgroundColor (hex "e74c3c")
+                           , color (hex "fff")
+                           , Css.width (px 30)
+                           , Css.height (px 30)
+                           , borderStyle none
+                           , borderRadius (px 11)
+                           , position absolute
+                           , top (pct 50)
+                           , right (px 10)
+                           , marginTop (px -11)
+                           , opacity (num 0.05)
+                           , cursor pointer
+                           , transition [ Css.Transitions.opacity 0.5 ]
                     , fontSize (px 20)
                     , lineHeight (px 24)
                     , textIndent (px -3)
                     , hover [ opacity (num 1) ]
                     ]
-              ][ text "-" ]
-     ]
-
-      
--- COLUMN VIEW
+              ][ text ">" ]
 
 
 taskColumnView : String -> List Task -> Html Msg
