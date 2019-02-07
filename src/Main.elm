@@ -1,14 +1,12 @@
-module Main exposing (..)
-
 import Browser
 import Css exposing (..)
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
+import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Http
 
 
 main =
@@ -20,12 +18,13 @@ main =
         }
 
 
+
 -- MODEL
---TODO: Add Id field for unique identifier
 
 
 type alias Task =
-    { name : String
+    { id : Int
+    , name : String
     , status : String
     }
 
@@ -76,23 +75,26 @@ getDoneTasks model =
 
 getTasks : Cmd Msg
 getTasks =
-         Http.get { url = "/tasks"
-                  , expect = Http.expectJson GetTasks tasksDecoder
-                  }
+    Http.get
+        { url = "/tasks"
+        , expect = Http.expectJson GetTasks tasksDecoder
+        }
 
 
 tasksDecoder : Decode.Decoder (List Task)
 tasksDecoder =
-             Decode.list taskDecoder
+    Decode.list taskDecoder
 
 
 taskDecoder : Decode.Decoder Task
 taskDecoder =
-           Decode.map2 Task
-                       (Decode.field "name" Decode.string)
-                       (Decode.field "status" Decode.string)
-             
-         
+    Decode.map3 Task
+        (Decode.field "id" Decode.int)
+        (Decode.field "name" Decode.string)
+        (Decode.field "status" Decode.string)
+
+
+
 -- UPDATE
 
 
@@ -149,12 +151,12 @@ update msg model =
                     ( model, Cmd.none )
 
         GetTasks result ->
-                 case result of
-                      Ok tasks ->
-                         ( { model | tasks = tasks }, Cmd.none )
+            case result of
+                Ok tasks ->
+                    ( { model | tasks = tasks }, Cmd.none )
 
-                      Err _ ->
-                          ( model, Cmd.none )
+                Err _ ->
+                    ( model, Cmd.none )
 
 
 
@@ -262,17 +264,16 @@ buttonHeader task =
             case task.status of
                 "Todo" ->
                     [ deleteButton task, moveRightButton task ]
-                            
+
                 "Done" ->
                     [ deleteButton task, moveLeftButton task ]
-                                
+
                 _ ->
                     [ deleteButton task, moveLeftButton task, moveRightButton task ]
-
     in
-        div [ css [ float right ] ] buttons
+    div [ css [ float right ] ] buttons
 
-        
+
 buttonStyling : List Style
 buttonStyling =
     [ backgroundColor (hex "e74c3c")
@@ -284,8 +285,8 @@ buttonStyling =
     , fontSize (px 20)
     , hover [ opacity (num 1) ]
     ]
-    
-    
+
+
 deleteButton : Task -> Html Msg
 deleteButton task =
     button
