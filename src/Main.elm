@@ -229,13 +229,20 @@ taskItemView index task =
 
 buttonHeader : Task -> Html Msg
 buttonHeader task =
-    div [ css [ float right
-              ]
-        ]
-        [ deleteButton task
-        , moveLeftButton task
-        , moveRightButton task
-        ]
+    let
+        buttons =
+            case task.status of
+                "Todo" ->
+                    [ deleteButton task, moveRightButton task ]
+                            
+                "Done" ->
+                    [ deleteButton task, moveLeftButton task ]
+                                
+                _ ->
+                    [ deleteButton task, moveLeftButton task, moveRightButton task ]
+
+    in
+        div [ css [ float right ] ] buttons
 
         
 buttonStyling : List Style
