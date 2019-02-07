@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg(..), Task, deleteButton, deleteTask, getDoneTasks, getOnGoingTasks, getToDoTasks, init, main, moveLeftButton, moveRightButton, moveTaskToStatus, onKeyDown, statusStyle, taskColumnView, taskItemView, update, view)
+module Main exposing (..)
 
 import Browser
 import Css exposing (..)
@@ -7,6 +7,8 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (..)
 import Html.Styled.Events exposing (..)
 import Json.Decode as Decode
+import Json.Encode as Encode
+import Http
 
 
 main =
@@ -16,7 +18,6 @@ main =
         , subscriptions = always Sub.none
         , view = view >> toUnstyled
         }
-
 
 
 -- MODEL
@@ -35,9 +36,9 @@ type alias Model =
     }
 
 
-init : () -> ( Model, Cmd msg )
+init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model "" [], Cmd.none )
+    ( Model "" [], getTasks )
 
 
 moveTaskToStatus : Task -> String -> List Task -> List Task
@@ -73,7 +74,25 @@ getDoneTasks model =
     List.filter (\t -> t.status == "Done") model.tasks
 
 
+getTasks : Cmd Msg
+getTasks =
+         Http.get { url = "/tasks"
+                  , expect = Http.expectJson GetTasks tasksDecoder
+                  }
 
+
+tasksDecoder : Decode.Decoder (List Task)
+tasksDecoder =
+             Decode.list taskDecoder
+
+
+taskDecoder : Decode.Decoder Task
+taskDecoder =
+           Decode.map2 Task
+                       (Decode.field "name" Decode.string)
+                       (Decode.field "status" Decode.string)
+             
+         
 -- UPDATE
 
 
@@ -88,6 +107,7 @@ type Msg
     | Delete String
     | MoveLeft Task
     | MoveRight Task
+    | GetTasks (Result Http.Error (List Task))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -127,6 +147,14 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        GetTasks result ->
+                 case result of
+                      Ok tasks ->
+                         ( { model | tasks = tasks }, Cmd.none )
+
+                      Err _ ->
+                          ( model, Cmd.none )
 
 
 
