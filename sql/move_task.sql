@@ -1,1 +1,1 @@
-UPDATE tasks SET status = %v WHERE id = %d;
+UPDATE tasks SET status = ? WHERE id = ?;

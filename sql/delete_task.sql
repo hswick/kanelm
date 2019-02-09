@@ -1,1 +1,1 @@
-DELETE FROM tasks WHERE id = $d;
+DELETE FROM tasks WHERE id = ?;

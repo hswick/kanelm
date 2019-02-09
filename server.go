@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"log"
@@ -12,7 +12,7 @@ import (
 )
 
 type Task struct {
-	Id int `json:"id"`
+	Id int64 `json:"id"`
 	Name string `json:"name"`
 	Status string `json:"status"`
 }
@@ -50,6 +50,11 @@ func getTasksHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 func newTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/new_task.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -60,19 +65,25 @@ func newTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		jsonerr := json.NewDecoder(r.Body).Decode(&nt)
-		if jsonerr != nil {
-			http.Error(w, jsonerr.Error(), 400)
+		err := json.NewDecoder(r.Body).Decode(&nt)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
 				
-		rows, dberr := db.Query(fmt.Sprintf(query, nt.Name, "Todo"))
-		if dberr != nil {
-			http.Error(w, dberr.Error(), 500)
+		res, err := stmt.Exec(nt.Name, "Todo")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
 			return
 		}
-		
-		json.NewEncoder(w).Encode(rows)
+
+		lastId, err := res.LastInsertId()
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}		
+
+		json.NewEncoder(w).Encode(&Task{Id: lastId, Name: nt.Name, Status: "Todo"})
 	}
 }
 

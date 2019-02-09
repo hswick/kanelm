@@ -1,1 +1,1 @@
-INSERT INTO tasks (name, status) VALUES (%v, %v);
+INSERT INTO tasks (name, status) VALUES (?, ?);
