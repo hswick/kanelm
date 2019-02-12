@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"log"
@@ -31,23 +31,78 @@ func loadQuery(filename string) (string) {
 	return string(content[:])
 }
 
-func getTasksHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+type Conn struct {
+	Driver string `json:"driver"`
+	ConnectionStr string `json:"connection-str"`
+}
+
+func dbConnection() (* sql.DB) {
+	rdr, err := os.Open("db.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var c Conn
+
+	jsonerr := json.NewDecoder(rdr).Decode(&c)
+
+	if jsonerr != nil {
+		log.Fatal(jsonerr)
+	}
+
+	db, dberr := sql.Open(c.Driver, c.ConnectionStr)
+
+	if dberr != nil {
+		log.Fatal(dberr)
+	}
+	
+	return db
+}
+
+var db *sql.DB = dbConnection()
+
+func getTasksHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/get_tasks.sql")
 
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		tasks := make(Tasks, 0)
+
 		rows, err := db.Query(query)
-		
+
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), 500)
 			return
 		}
 		
-		json.NewEncoder(w).Encode(rows)
+		defer rows.Close()
+
+		for rows.Next() {
+			task := Task{}
+			
+			err := rows.Scan(&task.Id, &task.Name, &task.Status)
+
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			tasks = append(tasks, task)
+		}
+
+		err2 := rows.Err()
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+				
+		json.NewEncoder(w).Encode(&tasks)
 	}
 }
 
-func newTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/new_task.sql")
 	stmt, err := db.Prepare(query)
@@ -70,24 +125,20 @@ func newTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-				
-		res, err := stmt.Exec(nt.Name, "Todo")
-		if err != nil {
-			http.Error(w, err.Error(), 500)
+
+		var id int64
+		err2 := stmt.QueryRow(nt.Name, "Todo").Scan(&id)
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
 			return
 		}
-
-		lastId, err := res.LastInsertId()
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}		
-
-		json.NewEncoder(w).Encode(&Task{Id: lastId, Name: nt.Name, Status: "Todo"})
+				
+		json.NewEncoder(w).Encode(&Task{Id: id, Name: nt.Name, Status: "Todo"})
 	}
 }
 
-func deleteTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/delete_task.sql")
 
@@ -105,19 +156,15 @@ func deleteTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		rows, dberr := db.Query(fmt.Sprintf(query, t.Id))
+		_, dberr := db.Query(query, t.Id)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
 		}
-
-		json.NewEncoder(w).Encode(rows)
-		
 	}
-
 }
 
-func moveTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
+func moveTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/move_task.sql")
 	
@@ -135,53 +182,21 @@ func moveTaskHandler(db *sql.DB) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		rows, dberr := db.Query(fmt.Sprintf(query, t.Status, t.Id))
+		_, dberr := db.Query(query, t.Status, t.Id)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
 		}
-
-		json.NewEncoder(w).Encode(rows)
 	}
 }
 
-type Conn struct {
-	User string `json:"user"`
-	ConnectionStr string `json:"connection-str"`
-}
 
-func dbConnection() (* sql.DB) {
-	rdr, err := os.Open("db.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var c Conn
-
-	jsonerr := json.NewDecoder(rdr).Decode(&c)
-
-	if jsonerr != nil {
-		log.Fatal(jsonerr)
-	}
-
-	db, dberr := sql.Open(c.User, c.ConnectionStr)
-
-	if dberr != nil {
-		log.Fatal(dberr)
-	}
-	
-	return db
-}
-
-func routes() {
-
-	db := dbConnection()
-	
+func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
-	http.HandleFunc("/tasks", getTasksHandler(db))
-	http.HandleFunc("/new", newTaskHandler(db))
-	http.HandleFunc("/delete", deleteTaskHandler(db))
-	http.HandleFunc("/move", moveTaskHandler(db))
+	http.HandleFunc("/tasks", getTasksHandler())
+	http.HandleFunc("/new", newTaskHandler())
+	http.HandleFunc("/delete", deleteTaskHandler())
+	http.HandleFunc("/move", moveTaskHandler())
 }
 
 func main() {

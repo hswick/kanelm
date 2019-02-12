@@ -1,7 +1,7 @@
-CREATE TABLE tasks(
- task_id serial PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS tasks(
+ id serial PRIMARY KEY,
  name text,
  status text,
- created_on TIMESTAMP NOT NULL,
- updated_on TIMESTAMP
+ created_at TIMESTAMP NOT NULL,
+ updated_at TIMESTAMP
 );

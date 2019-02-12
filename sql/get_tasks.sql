@@ -1,1 +1,1 @@
-SELECT (id, name, status) from tasks;
+SELECT id, name, status from tasks;

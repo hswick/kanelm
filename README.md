@@ -70,3 +70,34 @@ Light theme
 Dark theme
 
 ![](img/dark-theme.png)
+
+# Database Setup
+
+Install postgres
+
+Debian:
+```bash
+su - #login to root
+su - postgres #login to postgres
+createuser --interactive
+```
+
+Once you've created a user login to that user:
+```bash
+su - username
+createdb dbname
+```
+
+pg driver requires a password so we'll set it up with our database:
+```sql
+psql dbname
+ALTER USER username WITH PASSWORD 'new_password';
+```
+
+Now we will create our db.json file:
+```js
+{
+ "driver":"postgres",
+ "connection-str":"user=username password=password dbname=dbname"
+}
+```
