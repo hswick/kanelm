@@ -7,7 +7,6 @@ import Html.Styled.Events exposing (..)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Task
 
 
 main =
@@ -38,24 +37,6 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( Model "" [], getTasks )
-
-
-moveTaskToStatus : Task -> String -> List Task -> List Task
-moveTaskToStatus taskToFind newTaskStatus tasks =
-    List.map
-        (\t ->
-            if t.name == taskToFind.name then
-                { t | status = newTaskStatus }
-
-            else
-                t
-        )
-        tasks
-
-
-deleteTask : Model -> String -> ( Model, Cmd Msg )
-deleteTask model name =
-    ( { model | tasks = List.filter (\x -> x.name /= name) model.tasks }, Cmd.none )
 
 
 getOnGoingTasks : Model -> List Task
@@ -147,7 +128,7 @@ onKeyDown tagger =
 type Msg
     = KeyDown Int
     | TextInput String
-    | Delete String
+    | Delete Task
     | MoveLeft Task
     | MoveRight Task
     | GetTasks (Result Http.Error (List Task))
@@ -169,16 +150,16 @@ update msg model =
         TextInput content ->
             ( { model | taskInput = content }, Cmd.none )
 
-        Delete name ->
-            deleteTask model name
+        Delete task ->
+            ( { model | tasks = List.filter (\x -> x.id /= task.id) model.tasks }, postDeleteTask task )
 
         MoveRight task ->
             case task.status of
                 "Todo" ->
-                    ( { model | tasks = moveTaskToStatus task "OnGoing" model.tasks }, Cmd.none )
+                    moveTask model task "OnGoing"
 
                 "OnGoing" ->
-                    ( { model | tasks = moveTaskToStatus task "Done" model.tasks }, Cmd.none )
+                    moveTask model task "Done"
 
                 _ ->
                     ( model, Cmd.none )
@@ -186,10 +167,10 @@ update msg model =
         MoveLeft task ->
             case task.status of
                 "OnGoing" ->
-                    ( { model | tasks = moveTaskToStatus task "Todo" model.tasks }, Cmd.none )
+                    moveTask model task "Todo"
 
                 "Done" ->
-                    ( { model | tasks = moveTaskToStatus task "OnGoing" model.tasks }, Cmd.none )
+                    moveTask model task "OnGoing"
 
                 _ ->
                     ( model, Cmd.none )
@@ -205,29 +186,35 @@ update msg model =
         PostNewTask result ->
             case result of
                 Ok task ->
-                    ( { model | tasks = task :: model.tasks, taskInput = "" } , Cmd.none )
+                    ( { model | tasks = task :: model.tasks, taskInput = "" }, Cmd.none )
 
                 Err _ ->
                     ( model, Cmd.none )
 
-        PostMoveTask result ->
-            case result of
-                Ok _ ->
-                    ( model, Cmd.none )
+        PostMoveTask _ ->
+            ( model, Cmd.none )
 
-                Err _ ->
-                    ( model, Cmd.none )
-
-        PostDeleteTask result ->
-            case result of
-                Ok _ ->
-                    ( model, Cmd.none )
-
-                Err _ ->
-                    ( model, Cmd.none )
-                
+        PostDeleteTask _ ->
+            ( model, Cmd.none )            
 
 
+moveTask : Model -> Task -> String -> ( Model, Cmd Msg )
+moveTask model task newStatus =
+    ( { model | tasks = moveTaskToStatus task newStatus model.tasks }, postMoveTask (Task task.id task.name newStatus) )
+
+        
+moveTaskToStatus : Task -> String -> List Task -> List Task
+moveTaskToStatus taskToFind newTaskStatus tasks =
+    List.map
+        (\t ->
+            if t.id == taskToFind.id then
+                { t | status = newTaskStatus }
+
+            else
+                t
+        )
+        tasks
+                        
 
 -- VIEW
 
@@ -340,7 +327,7 @@ buttonHeader task =
                 _ ->
                     [ deleteButton task, moveLeftButton task, moveRightButton task ]
     in
-    div [ css [ float right ] ] buttons
+        div [ css [ float right ] ] buttons
 
 
 buttonStyling : List Style
@@ -360,7 +347,7 @@ deleteButton : Task -> Html Msg
 deleteButton task =
     button
         [ class "btn-delete"
-        , onClick <| Delete task.name
+        , onClick <| Delete task
         , css buttonStyling
         ]
         [ text "-" ]
