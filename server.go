@@ -190,7 +190,6 @@ func moveTaskHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-
 func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 	http.HandleFunc("/tasks", getTasksHandler())

@@ -7,6 +7,7 @@ import Html.Styled.Events exposing (..)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Task
 
 
 main =
@@ -18,7 +19,6 @@ main =
         }
 
 
-
 -- MODEL
 
 
@@ -26,9 +26,9 @@ type alias Task =
     { id : Int
     , name : String
     , status : String
-    }
+    }    
 
-
+    
 type alias Model =
     { taskInput : String
     , tasks : List Task
@@ -70,7 +70,7 @@ getToDoTasks model =
 
 getDoneTasks : Model -> List Task
 getDoneTasks model =
-    List.filter (\t -> t.status == "Done") model.tasks
+    List.filter (\t -> t.status == "Done") model.tasks        
 
 
 getTasks : Cmd Msg
@@ -78,6 +78,33 @@ getTasks =
     Http.get
         { url = "/tasks"
         , expect = Http.expectJson GetTasks tasksDecoder
+        }
+
+
+postNewTask : String -> Cmd Msg
+postNewTask name =
+    Http.post
+        { url = "/new"
+        , body = Http.jsonBody (newTaskEncoder name)
+        , expect = Http.expectJson PostNewTask taskDecoder
+        }
+        
+        
+postMoveTask : Task -> Cmd Msg
+postMoveTask task =
+    Http.post
+        { url = "/move"
+        , body = Http.jsonBody (taskEncoder task)
+        , expect = Http.expectWhatever PostMoveTask 
+        }
+
+        
+postDeleteTask : Task -> Cmd Msg
+postDeleteTask task =
+    Http.post
+        { url = "/delete"
+        , body = Http.jsonBody (taskEncoder task)
+        , expect = Http.expectWhatever PostDeleteTask 
         }
 
 
@@ -94,6 +121,20 @@ taskDecoder =
         (Decode.field "status" Decode.string)
 
 
+taskEncoder : Task -> Encode.Value
+taskEncoder task =
+    Encode.object
+        [ ("id", Encode.int task.id)
+        , ("name", Encode.string task.name)
+        , ("status", Encode.string task.status)
+        ]
+
+        
+newTaskEncoder : String -> Encode.Value
+newTaskEncoder name =
+    Encode.object
+        [ ("name", Encode.string name) ]
+            
 
 -- UPDATE
 
@@ -110,6 +151,9 @@ type Msg
     | MoveLeft Task
     | MoveRight Task
     | GetTasks (Result Http.Error (List Task))
+    | PostNewTask (Result Http.Error Task)
+    | PostMoveTask (Result Http.Error ())
+    | PostDeleteTask (Result Http.Error ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -117,7 +161,7 @@ update msg model =
     case msg of
         KeyDown key ->
             if key == 13 then
-                ( { model | tasks = Task model.taskInput "Todo" :: model.tasks, taskInput = "" }, Cmd.none )
+                ( model, postNewTask model.taskInput )
 
             else
                 ( model, Cmd.none )
@@ -157,6 +201,31 @@ update msg model =
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        PostNewTask result ->
+            case result of
+                Ok task ->
+                    ( { model | tasks = task :: model.tasks, taskInput = "" } , Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+        PostMoveTask result ->
+            case result of
+                Ok _ ->
+                    ( model, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+        PostDeleteTask result ->
+            case result of
+                Ok _ ->
+                    ( model, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+                
 
 
 
