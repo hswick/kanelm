@@ -271,11 +271,11 @@ func deleteProject(t *testing.T, user *Project) {
 		
 }
 
-func newTask(t *testing.T) (*Task) {
+func newTask(t *testing.T, user *User, project *ProjectId) (*Task) {
 	server := httptest.NewServer(http.HandlerFunc(newTaskHandler()))
 	defer server.Close()
 	
-	nt := &NewTask{Name: "foo"}
+	nt := &NewTask{Name: "foo", CreatedBy: user.Id, ProjectId: project.Id}
 	res, _ := json.Marshal(nt)
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
@@ -300,6 +300,14 @@ func newTask(t *testing.T) (*Task) {
 
 	if task.Status != "Todo" {
 		t.Fatal("Newly created task has incorrect status. Should be Todo, is", task.Status)
+	}
+
+	if task.CreatedBy != user.Id {
+		t.Fatal("Task does not have correct created by id", task.CreatedBy)
+	}
+
+	if task.ProjectId != project.Id {
+		t.Fatal("Task does not have correct project id", task.ProjectId)
 	}
 
 	return &task
@@ -402,7 +410,7 @@ func TestIntegrationApi(t *testing.T) {
 	// Tasks
 	createTasks()
 
-	task := newTask(t)
+	task := newTask(t, user, project)
 
 	moveTask(t, task)
 

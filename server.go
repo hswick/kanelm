@@ -11,14 +11,33 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type User struct {
+	Id int64 `json:"id"`
+	Name string `json:"name"`
+}
+
+type Users []User
+
+type Project struct {
+	Id int64 `json:"id"`
+	Name string `json:"name"`
+	CreatedBy int64 `json:"id"` 
+}
+
+type Projects []Project
+
 type Task struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
 	Status string `json:"status"`
+	ProjectId int64 `json:"project-id"`
+	CreatedBy int64 `json:"created-by"`
 }
 
 type NewTask struct {
 	Name string `json:"name"`
+	CreatedBy int64 `json:"created-by"`
+	ProjectId int64 `json:"project-id"`
 }
 
 type Tasks []Task
