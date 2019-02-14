@@ -1,7 +1,8 @@
+
 elm-stuff
 node_modules
 dist
 config.js
-static/elm.min.js
+static/*.min.js
 server
 db.json
