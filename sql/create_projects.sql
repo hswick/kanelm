@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS projects(
+CREATE TABLE projects(
  id serial PRIMARY KEY,
  created_by INTEGER REFERENCES users(id),
  name text,

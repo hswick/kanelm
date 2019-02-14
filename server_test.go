@@ -105,27 +105,25 @@ func updateUserName(t *testing.T, user *User) {
 
 }
 
-func getUserById(t *testing.T, user *User) {
+func getUserById(t *testing.T, id *UserId) (*User) {
 	server := httptest.NewServer(http.HandlerFunc(getUserHandler()))
 	defer server.Close()
 
-	nu := &UserId{Id: user.Id}
-	res, _ := json.Marshal(nu)
+	res, _ := json.Marshal(id)
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
 	if err != nil {
 		t.Fatal("Getting user by id failed:", err.Error())
 	}
 
-	var updatedUser User
-	err2 := json.NewDecoder(resp.Body).Decode(&updatedUser)
-	if err2 != nil {
-		t.Fatal("Decoding user failed: ", err2.Error())
+	var u User
+	err = json.NewDecoder(resp.Body).Decode(&u)
+	if err != nil {
+		t.Fatal("Decoding user failed: ", err.Error())
 	}
 
-	if updatedUser.Name != user.Name {
-		t.Fatal("User does not have correct name")
-	}
+	return &u
+
 }
 
 func deleteUser(t *testing.T, user *User) {
@@ -383,7 +381,11 @@ func TestIntegrationApi(t *testing.T) {
 
 	updateUserName(t,  &User{Id: user.Id, Name: "ricky"})
 
-	getUserById(t, user)
+	user = getUserById(t, &UserId{Id: user.Id})
+
+	if user.Name != "ricky" {
+		t.Fatal("User name should be ricky, but it is", user.Name)
+	}
 
 	// Project
 	createProjects()

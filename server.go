@@ -130,9 +130,34 @@ func newUserHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
-		
+	query := loadQuery("sql/update_user_name.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
 	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var u User
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&u)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		_, dberr := stmt.Exec(u.Id, u.Name)
+		if dberr != nil {
+			http.Error(w, dberr.Error(), 500)
+			return
+		}	
+	}	
 }
 
 func getUserHandler() func(http.ResponseWriter, *http.Request) {
@@ -222,7 +247,7 @@ func newProjectHandler() func(http.ResponseWriter, *http.Request) {
 func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
 	return func (w http.ResponseWriter, r *http.Request) {
 		
-	}	
+	}
 }
 
 func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
@@ -353,6 +378,11 @@ func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/delete_task.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	return func (w http.ResponseWriter, r *http.Request) {
 		var t Task
@@ -368,7 +398,7 @@ func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, dberr := db.Query(query, t.Id)
+		_, dberr := stmt.Exec(t.Id)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
