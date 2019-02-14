@@ -197,14 +197,69 @@ func getUserHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func getUsersHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
+
+	query := loadQuery("sql/get_users.sql")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		users := make(Users, 0)
+
+		rows, err := db.Query(query)
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 		
+		defer rows.Close()
+
+		for rows.Next() {
+			user := User{}
+			
+			err := rows.Scan(&user.Id, &user.Name)
+
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			users = append(users, user)
+		}
+
+		err2 := rows.Err()
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+				
+		json.NewEncoder(w).Encode(&users)
 	}	
 }
 
 func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
+	query := loadQuery("sql/delete_user.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	
 	return func (w http.ResponseWriter, r *http.Request) {
-		
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		var u User				
+		err := json.NewDecoder(r.Body).Decode(&u)
+
+		_, err = stmt.Exec(u.Id)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 	}	
 }
 
@@ -245,9 +300,35 @@ func newProjectHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
-		
+
+	query := loadQuery("sql/update_project_name.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
 	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var p Project
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&p)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		_, dberr := stmt.Exec(p.Id, p.Name)
+		if dberr != nil {
+			http.Error(w, dberr.Error(), 500)
+			return
+		}
+	}	
 }
 
 func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
@@ -292,15 +373,35 @@ func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
-		
-	}	
+
+	query := loadQuery("sql/delete_project.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 	
+	return func (w http.ResponseWriter, r *http.Request) {
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		var p Project				
+		err := json.NewDecoder(r.Body).Decode(&p)
+
+		_, err = stmt.Exec(p.Id)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	}	
 }
 
 func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 
-	query := loadQuery("sql/get_tasks.sql")
+	query := loadQuery("sql/get_project_tasks.sql")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
