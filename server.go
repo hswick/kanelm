@@ -20,12 +20,16 @@ type NewUser struct {
 	Name string `json:"name"`
 }
 
+type UserId struct {
+	Id int64 `json:"id"`
+}
+
 type Users []User
 
 type Project struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
-	CreatedBy int64 `json:"id"` 
+	CreatedBy int64 `json:"created-by"` 
 }
 
 type NewProject struct {
@@ -90,21 +94,81 @@ func dbConnection() (* sql.DB) {
 var db *sql.DB = dbConnection()
 
 func newUserHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
-		
+
+	query := loadQuery("sql/new_user.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var nu NewUser
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&nu)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		var id int64
+		err2 := stmt.QueryRow(nu.Name).Scan(&id)
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+				
+		json.NewEncoder(w).Encode(&User{Id: id, Name: nu.Name})
 	}
 }
 
 func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
 	return func (w http.ResponseWriter, r *http.Request) {
 		
-	}	
+	}
 }
 
 func getUserHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
+
+	query := loadQuery("sql/get_user.sql")
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var id UserId
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
 		
-	}	
+		err := json.NewDecoder(r.Body).Decode(&id)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		var u User
+		err = stmt.QueryRow(id.Id).Scan(&u.Id, &u.Name)
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+						
+		json.NewEncoder(w).Encode(&u)
+	}
+	
 }
 
 func getUsersHandler() func(http.ResponseWriter, *http.Request) {
@@ -120,8 +184,38 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func newProjectHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
-		
+
+	query := loadQuery("sql/new_project.sql")
+	stmt, err := db.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var np NewProject
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&np)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		var id int64
+		err2 := stmt.QueryRow(np.Name, np.CreatedBy).Scan(&id)
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+				
+		json.NewEncoder(w).Encode(&Project{Id: id, Name: np.Name, CreatedBy: np.CreatedBy})
 	}	
 }
 
@@ -132,8 +226,43 @@ func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
-	return func (w http.ResponseWriter, r *http.Request) {
+
+	query := loadQuery("sql/get_projects.sql")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		projects := make(Projects, 0)
+
+		rows, err := db.Query(query)
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 		
+		defer rows.Close()
+
+		for rows.Next() {
+			project := Project{}
+			
+			err := rows.Scan(&project.Id, &project.Name, &project.CreatedBy)
+
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			projects = append(projects, project)
+		}
+
+		err2 := rows.Err()
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+				
+		json.NewEncoder(w).Encode(&projects)
 	}	
 }
 
@@ -141,6 +270,7 @@ func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
 	return func (w http.ResponseWriter, r *http.Request) {
 		
 	}	
+	
 }
 
 func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {

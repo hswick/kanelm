@@ -109,15 +109,9 @@ func getUserById(t *testing.T, user *User) {
 	server := httptest.NewServer(http.HandlerFunc(getUserHandler()))
 	defer server.Close()
 
-	req, err := http.NewRequest("GET", server.URL, nil)
-	req.URL.Query().Add("id", string(user.Id))
-
-	if err != nil {
-		t.Fatal("Getting user by id failed:", err.Error())
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	nu := &UserId{Id: user.Id}
+	res, _ := json.Marshal(nu)
+	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
 	if err != nil {
 		t.Fatal("Getting user by id failed:", err.Error())
@@ -205,7 +199,7 @@ func newProject(t *testing.T, user *User) (*Project) {
 	}
 
 	if project.CreatedBy != user.Id {
-		t.Fatal("Project does not have correct created by")
+		t.Fatal("Project does not have correct created by, is", project.CreatedBy)
 	}
 
 	return &project
