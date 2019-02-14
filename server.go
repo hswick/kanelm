@@ -16,12 +16,21 @@ type User struct {
 	Name string `json:"name"`
 }
 
+type NewUser struct {
+	Name string `json:"name"`
+}
+
 type Users []User
 
 type Project struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
 	CreatedBy int64 `json:"id"` 
+}
+
+type NewProject struct {
+	Name string `json:"name"`
+	CreatedBy int64 `json:"created-by"`
 }
 
 type Projects []Project
@@ -80,7 +89,61 @@ func dbConnection() (* sql.DB) {
 
 var db *sql.DB = dbConnection()
 
-func getTasksHandler() func(http.ResponseWriter, *http.Request) {
+func newUserHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}
+}
+
+func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func getUserHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func getUsersHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func newProjectHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
+	return func (w http.ResponseWriter, r *http.Request) {
+		
+	}	
+}
+
+func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/get_tasks.sql")
 
@@ -211,7 +274,7 @@ func moveTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
-	http.HandleFunc("/tasks", getTasksHandler())
+	http.HandleFunc("/project/tasks", getProjectTasksHandler())
 	http.HandleFunc("/new", newTaskHandler())
 	http.HandleFunc("/delete", deleteTaskHandler())
 	http.HandleFunc("/move", moveTaskHandler())

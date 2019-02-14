@@ -88,7 +88,7 @@ func newUser(t *testing.T) (*User) {
 }
 
 func updateUserName(t *testing.T, user *User) {
-	server := httptest.NewServer(http.HandlerFunc(updateUserHandler()))
+	server := httptest.NewServer(http.HandlerFunc(updateUserNameHandler()))
 	defer server.Close()
 
 	res, _ := json.Marshal(user)
@@ -156,7 +156,7 @@ func getUsers(t *testing.T) (Users) {
 	server := httptest.NewServer(http.HandlerFunc(getUsersHandler()))
 	defer server.Close()
 
-	req, err := http.GET(server.URL)
+	resp, err := http.Get(server.URL)
 
 	if err != nil {
 		t.Fatal("Get users failed with", err.Error())
@@ -181,7 +181,7 @@ func newProject(t *testing.T, user *User) (*Project) {
 	server := httptest.NewServer(http.HandlerFunc(newProjectHandler()))
 	defer server.Close()
 
-	np := &NewProject{Name: "bar", UserId: User.Id}
+	np := &NewProject{Name: "bar", CreatedBy: user.Id}
 	res, _ := json.Marshal(np)
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
@@ -204,7 +204,7 @@ func newProject(t *testing.T, user *User) (*Project) {
 		t.Fatal("Project does not have correct name")
 	}
 
-	if project.CreatedBy != User.Id {
+	if project.CreatedBy != user.Id {
 		t.Fatal("Project does not have correct created by")
 	}
 
@@ -232,7 +232,7 @@ func getProjects(t *testing.T) (Projects) {
 	server := httptest.NewServer(http.HandlerFunc(getProjectsHandler()))
 	defer server.Close()
 
-	req, err := http.GET(server.URL)
+	resp, err := http.Get(server.URL)
 
 	if err != nil {
 		t.Fatal("Get projects failed with", err.Error())
@@ -253,7 +253,7 @@ func getProjects(t *testing.T) (Projects) {
 	return projects	
 }
 
-func deleteProject(t *testing.T, user *Project) {
+func deleteProject(t *testing.T, project *Project) {
 	server := httptest.NewServer(http.HandlerFunc(deleteProjectHandler()))
 	defer server.Close()
 
@@ -271,7 +271,7 @@ func deleteProject(t *testing.T, user *Project) {
 		
 }
 
-func newTask(t *testing.T, user *User, project *ProjectId) (*Task) {
+func newTask(t *testing.T, user *User, project *Project) (*Task) {
 	server := httptest.NewServer(http.HandlerFunc(newTaskHandler()))
 	defer server.Close()
 	
@@ -387,18 +387,16 @@ func TestIntegrationApi(t *testing.T) {
 
 	user := newUser(t)
 
-	user = User{Id: user.Id, Name: "ricky"}
-
-	updateUserName(t,  user)
+	updateUserName(t,  &User{Id: user.Id, Name: "ricky"})
 
 	getUserById(t, user)
 
 	// Project
 	createProjects()
 
-	project := newProject(t)
+	project := newProject(t, user)
 
-	updateProjectName(t, Project{Id: project.Id, Name: "galaxy", CreatedBy: project.CreatedBy})
+	updateProjectName(t, &Project{Id: project.Id, Name: "galaxy", CreatedBy: project.CreatedBy})
 
 	projects := getProjects(t)
 
@@ -450,7 +448,7 @@ func TestIntegrationApi(t *testing.T) {
 
 	deleteUser(t, user)
 
-	users = getUsers(t)
+	users := getUsers(t)
 
 	n = len(users)
 
