@@ -305,8 +305,8 @@ func newTask(t *testing.T, user *User, project *Project) (*Task) {
 	return &task
 }
 
-func moveTask(t *testing.T, task *Task) {
-	server := httptest.NewServer(http.HandlerFunc(moveTaskHandler()))
+func updateTaskStatus(t *testing.T, task *Task) {
+	server := httptest.NewServer(http.HandlerFunc(updateTaskStatusHandler()))
 	defer server.Close()
 	
 	res, _ := json.Marshal(Task{Id: task.Id, Name: task.Name, Status: "OnGoing"})
@@ -326,15 +326,8 @@ func getProjectTasks(t *testing.T, project *Project) (Tasks) {
 	server := httptest.NewServer(http.HandlerFunc(getProjectTasksHandler()))
 	defer server.Close()
 
-	req, err := http.NewRequest("GET", server.URL, nil)
-	req.URL.Query().Add("id", string(project.Id))
-
-	if err != nil {
-		t.Fatal("Getting project tasks failed:", err.Error())
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	res, _ := json.Marshal(project)
+	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
 	if err != nil {
 		t.Fatal("Get tasks failed with", err.Error())
@@ -406,7 +399,7 @@ func TestIntegrationApi(t *testing.T) {
 
 	task := newTask(t, user, project)
 
-	moveTask(t, task)
+	updateTaskStatus(t, task)
 
 	tasks := getProjectTasks(t, project)
 

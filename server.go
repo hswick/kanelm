@@ -405,9 +405,20 @@ func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		tasks := make(Tasks, 0)
+		if r.Body == nil {
+			http.Error(w, "Please send a body with your request", 400)
+			return
+		}
 
-		rows, err := db.Query(query)
+		var p Project		
+		err := json.NewDecoder(r.Body).Decode(&p)
+
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		rows, err := db.Query(query, p.Id)
 
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -415,6 +426,8 @@ func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 		}
 		
 		defer rows.Close()
+
+		tasks := make(Tasks, 0)		
 
 		for rows.Next() {
 			task := Task{}
@@ -465,14 +478,14 @@ func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		var id int64
-		err2 := stmt.QueryRow(nt.Name, "Todo").Scan(&id)
+		err2 := stmt.QueryRow(nt.Name, "Todo", nt.ProjectId, nt.CreatedBy).Scan(&id)
 
 		if err2 != nil {
 			http.Error(w, err2.Error(), 500)
 			return
 		}
 				
-		json.NewEncoder(w).Encode(&Task{Id: id, Name: nt.Name, Status: "Todo"})
+		json.NewEncoder(w).Encode(&Task{Id: id, Name: nt.Name, Status: "Todo", CreatedBy: nt.CreatedBy, ProjectId: nt.ProjectId})
 	}
 }
 
@@ -507,9 +520,13 @@ func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func moveTaskHandler() func(http.ResponseWriter, *http.Request) {
+func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 
-	query := loadQuery("sql/move_task.sql")
+	query := loadQuery("sql/update_task_status.sql")
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 		var t Task
@@ -525,7 +542,7 @@ func moveTaskHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, dberr := db.Query(query, t.Status, t.Id)
+		_, dberr := stmt.Exec(t.Id, t.Status)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
@@ -538,7 +555,6 @@ func routes() {
 	http.HandleFunc("/project/tasks", getProjectTasksHandler())
 	http.HandleFunc("/new", newTaskHandler())
 	http.HandleFunc("/delete", deleteTaskHandler())
-	http.HandleFunc("/move", moveTaskHandler())
 }
 
 func main() {
