@@ -361,10 +361,10 @@ func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
 			projects = append(projects, project)
 		}
 
-		err2 := rows.Err()
+		err = rows.Err()
 
-		if err2 != nil {
-			http.Error(w, err2.Error(), 500)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
 			return
 		}
 				
@@ -552,9 +552,6 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 
 func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
-	http.HandleFunc("/project/tasks", getProjectTasksHandler())
-	http.HandleFunc("/new", newTaskHandler())
-	http.HandleFunc("/delete", deleteTaskHandler())
 }
 
 func main() {

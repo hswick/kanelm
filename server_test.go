@@ -63,6 +63,7 @@ func newUser(t *testing.T) (*User) {
 
 	nu := &NewUser{Name: "userfoo"}
 	res, _ := json.Marshal(nu)
+
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
 	if err != nil {
@@ -73,7 +74,7 @@ func newUser(t *testing.T) (*User) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		t.Fatal("New user has error", string(body))
 	}
-
+	
 	var user User
 	err2 := json.NewDecoder(resp.Body).Decode(&user)
 	if err2 != nil {
@@ -367,7 +368,7 @@ func deleteTask(t *testing.T, task *Task) {
 
 func TestIntegrationApi(t *testing.T) {
 
-	// User
+	// Users
 	createUsers()
 
 	user := newUser(t)
@@ -380,7 +381,7 @@ func TestIntegrationApi(t *testing.T) {
 		t.Fatal("User name should be ricky, but it is", user.Name)
 	}
 
-	// Project
+	// Projects
 	createProjects()
 
 	project := newProject(t, user)
@@ -407,6 +408,10 @@ func TestIntegrationApi(t *testing.T) {
 		t.Fatal("Task status should be OnGoing, but it is", tasks[0].Status)
 	}
 
+	// TEARDOWN
+
+	// Tasks
+
 	deleteTask(t, task)
 
 	tasks = getProjectTasks(t, project)
@@ -419,7 +424,7 @@ func TestIntegrationApi(t *testing.T) {
 	
 	dropTasks()
 
-	//Project
+	// Projects
 
 	deleteProject(t, project)
 
@@ -433,7 +438,7 @@ func TestIntegrationApi(t *testing.T) {
 
 	dropProjects()
 
-	//User
+	// Users
 
 	deleteUser(t, user)
 
