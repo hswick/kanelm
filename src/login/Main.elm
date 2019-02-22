@@ -2,7 +2,14 @@ import Browser
 import Html
 import Http
 import Json.Encode as Encode
-import Navigation
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+import Http
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Browser.Navigation as Nav
+
 
 
 main =
@@ -20,7 +27,12 @@ type alias Login =
      }
 
 
-type alias Model = Login
+type alias Model =
+    Login
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Login "" "", Cmd.none )
 
 
 postLogin : Login -> Cmd Msg
@@ -28,22 +40,22 @@ postLogin login =
           Http.post
                 { url = "/login"
                 , body = Http.jsonBody (loginEncoder login)
-                , expect = Http.expectString
+                , expect = Http.expectString PostLogin
                 }
 
 
 loginEncoder : Login -> Encode.Value
 loginEncoder login =
              Encode.object
-             [ (Encode.string "username" login.usernameText)
-             , (Encode.string "password" login.passwordText)
-             ]
+                 [ ("username", Encode.string login.usernameText)
+                 , ("password", Encode.string login.passwordText)
+                 ]
 
 
 -- UPDATE
 
 
-type Msg =
+type Msg
      = UsernameTextInput String
      | PasswordTextInput String
      | Submit
@@ -64,8 +76,8 @@ update msg model =
 
             PostLogin result ->
                       case result of
-                           Ok result ->
-                              ( model, Navigation.load result )
+                           Ok url ->
+                              ( model, Nav.load url )
 
                            Err _ ->
                                ( model, Cmd.none )
@@ -77,7 +89,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
      div []
-     [ input [ onInput UsernameTextInput, placeholder "Username", value.modelUsernameText] []
-     , input [ onInput PasswordTextInput, placeholder "Password", value.modelPasswordText] []
+     [ input [ onInput UsernameTextInput, placeholder "Username", value model.usernameText] []
+     , input [ onInput PasswordTextInput, placeholder "Password", value model.passwordText] []
      , button [ onClick Submit ] [ text "Submit" ]
      ]

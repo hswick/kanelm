@@ -1,11 +1,18 @@
 import Browser
 import Html
+import Http
+import Json.Encode as Encode
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+import Json.Decode as Decode
+import Json.Encode as Encode
 
 
 main =
     Browser.element
         { init = init
-        , update = 
+        , update = update
         , subscriptions = always Sub.none
         , view = view >> toUnstyled
         }
@@ -23,6 +30,7 @@ type alias Task =
 
 type alias Model =
      { username : String
+     , usernameEdit : String
      , tasks : List Task
      , editMode : Bool
      , todoCount : Int
@@ -33,7 +41,16 @@ type alias Model =
 
 init : String -> ( Model, Cmd Msg )
 init username =
-     ( Model username, [], False, 0, 0, 0, getTasks username)
+    ( { username = username
+      , usernameEdit = ""
+      , tasks = []
+      , editMode = False
+      , todoCount = 0
+      , onGoingCount = 0
+      , doneCount = 0
+      }
+    , getTasks username
+    )       
 
 
 getTasks : String -> Cmd Msg
@@ -46,18 +63,18 @@ getTasks username =
 
 countTodo : List Task -> Int
 countTodo tasks =
-    (List.filter \t -> t.status == "Todo") |> List.sum
+    (List.filter (\t -> t.status == "Todo") tasks) |> List.length
 
 
-countOnGoing : List Task ->
+countOnGoing : List Task -> Int
 countOnGoing tasks =
-    (List.filter \t -> t.status == "OnGoing") |> List.sum
+    (List.filter (\t -> t.status == "OnGoing") tasks) |> List.length
         
 
-countDone : List Task ->
+countDone : List Task -> Int
 countDone tasks =
-    (List.filter \t -> t.status == "Done") |> List.sum)
-
+    (List.filter (\t -> t.status == "Done") tasks) |> List.length
+        
         
 postUpdateUsername : String -> String -> Cmd Msg
 postUpdateUsername oldUsername newUsername =
@@ -76,14 +93,14 @@ updateRequestEncoder old new =
         ]
         
 
-tasksDecoder : Decode.Decoder List Task
+tasksDecoder : Decode.Decoder (List Task)
 tasksDecoder =
     Decode.list taskDecoder
         
 
 taskDecoder : Decode.Decoder Task
 taskDecoder =
-    Decode.map4 Task
+    Decode.map3 Task
         (Decode.field "id" Decode.int)
         (Decode.field "name" Decode.string)
         (Decode.field "status" Decode.string)
@@ -104,18 +121,18 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
        case msg of
            Edit ->
-               ( { model | editMode = not editMode }, Cmd.none )
+               ( { model | editMode = not model.editMode }, Cmd.none )
                        
            Submit ->
-               ( model, postUpdateUsername model.username )
+               ( model, postUpdateUsername model.username model.usernameEdit)
 
            UsernameInput u ->
-               ( { model | username = u }, Cmd.none )
+               ( { model | usernameEdit = u }, Cmd.none )
 
            GetTasks result ->
                case result of
                    Ok tasks ->
-                       ( { model | tasks = tasks, todoCount countTodo tasks, onGoingCount = countOngoing tasks, doneCount = countDone tasks }, Cmd.none )
+                       ( { model | tasks = tasks, todoCount = countTodo tasks, onGoingCount = countOnGoing tasks, doneCount = countDone tasks }, Cmd.none )
 
                    Err _ ->
                        ( model, Cmd.none )
@@ -137,14 +154,14 @@ view model =
 
 userView : Model -> Html Msg
 userView model =
-    div []
-        if model.editMode then
-            [ text username
-            , input [ value model.username, onInput UsernameInput ] []
+    if model.editMode then
+        div []
+            [ input [ value model.usernameEdit, onInput UsernameInput, placeholder model.username ] []
             , button [ onClick Submit ] [ text "Submit Edit" ]
             ]
-        else
-            [ text username
+    else
+        div []
+            [ text model.username
             , button [ onClick Edit ] [ text "Edit" ]
             ]
 
@@ -154,11 +171,11 @@ tasksView model =
     div []
         [ div []
               [ text <| String.fromInt model.todoCount 
-              , text <| String.fromint model.onGoingCount
+              , text <| String.fromInt model.onGoingCount
               , text <| String.fromInt model.doneCount
               ]
         , div []
-            List.map taskView tasks
+            (List.map taskView model.tasks)
         ]
 
             

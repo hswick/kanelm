@@ -1,4 +1,13 @@
 import Browser
+import Html
+import Http
+import Json.Encode as Encode
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (..)
+import Html.Styled.Events exposing (..)
+import Json.Decode as Decode
+import Json.Encode as Encode
+
 
 main =
     Browser.element
@@ -19,6 +28,11 @@ type alias Project =
     }
 
 
+type alias NewProject =
+     { name : String
+     , owner : String
+     }
+
 type alias Model =
     { projectNameEdit : String
     , ownerNameEdit : String
@@ -32,7 +46,16 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( (Model "", "", "", False, [], 0, False) , getProjects )
+    ( { projectNameEdit = ""
+      , ownerNameEdit = ""
+      , projectNameNew = ""
+      , newMode = False
+      , projects = []
+      , editProject = 0
+      , editMode = False
+      }
+      , getProjects
+      )
 
 
 getProjects : Cmd Msg
@@ -43,24 +66,30 @@ getProjects =
         }
 
 
-postNewProject : Project -> Cmd Msg
-postNewProject project =
+postNewProject : NewProject -> Cmd Msg
+postNewProject newProject =
     Http.post
         { url = "/new/project/"
-        , body = Http.jsonBody projectEncoder project
+        , body = Http.jsonBody (newProjectEncoder newProject)
         , expect = Http.expectWhatever PostNewProject
         }
 
 
-postEditProject : Project -> Cmd Msg
-postEditProject project =
+editProject : Model -> Project
+editProject model =
+    { id = model.editProject, name = model.projectNameEdit, owner = model.ownerNameEdit }
+
+
+postEditProject : Model -> Cmd Msg
+postEditProject model =
     Http.post
         { url = "/edit/project/"
-        , body = Http.jsonBody projectEncoder project
+        , body = Http.jsonBody (projectEncoder (editProject model))
         , expect = Http.expectWhatever PostEditProject
         }
-        
-projectsDecoder : Decode.Decoder List Project
+
+
+projectsDecoder : Decode.Decoder (List Project)
 projectsDecoder =
     Decode.list projectDecoder
 
@@ -73,6 +102,23 @@ projectDecoder =
         (Decode.field "owner" Decode.string)
 
 
+projectEncoder : Project -> Encode.Value
+projectEncoder project =
+               Encode.object
+                [ ("id", Encode.int project.id)
+                , ("name", Encode.string project.name)
+                , ("owner", Encode.string project.owner)
+                ]
+
+
+newProjectEncoder : NewProject -> Encode.Value
+newProjectEncoder newProject =
+               Encode.object
+                [ ("name", Encode.string newProject.name)
+                , ("owner", Encode.string newProject.owner)
+                ]
+
+
 -- UPDATE
 
 
@@ -83,9 +129,9 @@ type Msg
     | EditProject Int
     | SaveEditProject
     | CancelEditProject
-    | NewProject
+    | ProjectNew
     | CancelNewProject
-    | ProjectNameNew
+    | ProjectNameNew String
     | SaveNewProject
     | PostNewProject (Result Http.Error ())
     | PostEditProject (Result Http.Error ())
@@ -94,7 +140,7 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
        case msg of
-            NewProject ->
+            ProjectNew ->
                        ( { model | newMode = True }, Cmd.none )
 
 
@@ -105,31 +151,37 @@ update msg model =
                           ( { model | projectNameEdit = projectName }, Cmd.none )
 
             OwnerNameEdit ownerName ->
-                           ( { model | ownerNameEdit = ownerName, Cmd.none )
+                           ( { model | ownerNameEdit = ownerName }, Cmd.none )
 
             SaveEditProject ->
-                 ( model, postEditProject )
+                 ( model, postEditProject model )
 
             CancelEditProject ->
-                 ( { model | editMode = False, projectNameEdit = "", ownerNameEdit = "" } )
+                 ( { model | editMode = False, projectNameEdit = "", ownerNameEdit = "" }, Cmd.none )
 
-            NewProject ->
-                 ( { model | newMode = True }, Cmd.none )
 
             CancelNewProject ->
                  ( { model | newMode = False, projectNameNew = "" }, Cmd.none )
 
             SaveNewProject ->
-                 ( model, postNewProject model )
+                 ( model, postNewProject { name = model.projectNameNew, owner = "FooBar" } )
 
             ProjectNameNew p ->
-                 ( { model | projectNameNew = p, Cmd.none } )
+                 ( { model | projectNameNew = p }, Cmd.none )
 
             PostNewProject _ ->
                  ( { model | projectNameNew = "", newMode = False }, Cmd.none )
 
             PostEditProject _ ->
                  ( { model | editMode = False, projectNameEdit = "", ownerNameEdit = "" }, Cmd.none )
+
+            GetProjects result ->
+                case result of
+                    Ok projects ->
+                        ( { model | projects = projects }, Cmd.none )
+
+                    Err _ ->
+                        ( model, Cmd.none )
 
 
 -- VIEW
@@ -138,7 +190,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
      div []
-         [ button [ onClick NewProject ]
+         [ button [ onClick ProjectNew ] [ text "+" ]
          , newProjectView model
          , projectsView model
          ]
@@ -155,11 +207,11 @@ newProjectView model =
 
 projectsView : Model -> Html Msg
 projectsView model =
-             let
-                context = \project -> projectView project model
-             in
-                div []
-                    List.map context model.projects
+    div []
+        (List.map
+            (\project -> (projectView project model))
+            model.projects
+        )
                 
 
 projectView : Project -> Model -> Html Msg
