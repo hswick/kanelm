@@ -55,6 +55,11 @@ type NewTask struct {
 
 type Tasks []Task
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func loadQuery(filename string) (string) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -244,6 +249,13 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
+	query = loadQuery("sql/delete_login.sql")
+	stmt2, err2 := db.Prepare(query)
+
+	if err2 != nil {
+		log.Fatal(err2.Error())
+	}
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 
@@ -254,6 +266,12 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 
 		var u User				
 		err := json.NewDecoder(r.Body).Decode(&u)
+
+		_, err = stmt2.Exec(u.Id)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 
 		_, err = stmt.Exec(u.Id)
 		if err != nil {
@@ -547,6 +565,65 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(w, dberr.Error(), 500)
 			return
 		}
+	}
+}
+
+func loginUserHandler()  func(http.ResponseWriter, *http.Request) {
+	query := loadQuery("sql/get_password.sql")
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	query = loadQuery("sql/get_user_id.sql")
+	stmt2, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return func (w http.ResponseWriter, r *http.Request) {
+		var lr LoginRequest
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		jsonerr := json.NewDecoder(r.Body).Decode(&lr)
+		if jsonerr != nil {
+			http.Error(w, jsonerr.Error(), 400)
+			return
+		}
+
+		var id int64
+		err2 := stmt2.QueryRow(lr.Username).Scan(&id)
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+
+		var password string
+		err3 := stmt.QueryRow(id).Scan(&password)
+
+		if err3 != nil {
+			http.Error(w, err3.Error(), 500)
+			return
+		}
+
+		if password == lr.Password {
+			fmt.Fprintf(w, "/projects/%d", id)
+			return
+		}
+
+		http.Error(w, "Password is incorrect", 404)
+		
+	}
+}
+
+func loginPageHandler()  func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		
 	}
 }
 

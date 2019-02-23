@@ -33,6 +33,7 @@ type alias NewProject =
      , owner : String
      }
 
+    
 type alias Model =
     { projectNameEdit : String
     , ownerNameEdit : String

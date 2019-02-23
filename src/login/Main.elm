@@ -11,7 +11,6 @@ import Json.Encode as Encode
 import Browser.Navigation as Nav
 
 
-
 main =
     Browser.element
         { init = init
@@ -30,6 +29,7 @@ type alias Login =
 type alias Model =
     Login
 
+        
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( Login "" "", Cmd.none )

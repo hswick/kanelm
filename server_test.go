@@ -34,6 +34,10 @@ func createProjects() {
 	createTable("sql/create_projects.sql")
 }
 
+func createLogin() {
+	createTable("sql/create_login.sql")
+}
+
 func dropTable(query string) {
 	stmt, err := db.Prepare("DROP TABLE IF EXISTS tasks")
 
@@ -55,6 +59,10 @@ func dropUsers() {
 
 func dropProjects() {
 	dropTable("DROP TABLE IF EXISTS projects")
+}
+
+func dropLogin() {
+	dropTable("DROP TABLE IF EXISTS login")
 }
 
 func newUser(t *testing.T) (*User) {
@@ -168,6 +176,44 @@ func getUsers(t *testing.T) (Users) {
 	}
 
 	return users
+}
+
+func insertLogin(t *testing.T, user *User) {
+	stmt, err := db.Prepare("INSERT INTO login (user_id, password, created_at) VALUES ($1, $2, NOW())")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	_, err2 := stmt.Exec(user.Id, "foobar")
+
+	if err2 != nil {
+		t.Fatal(err2.Error())
+	}
+}
+
+func loginUser(t *testing.T, user *User) {
+	server := httptest.NewServer(http.HandlerFunc(loginUserHandler()))
+	defer server.Close()
+
+	lr := &LoginRequest{Username: user.Name, Password: "foobar"}
+	res, _ := json.Marshal(lr)
+	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
+
+	if err != nil {
+		t.Fatal("Failed to login user", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatal("Login user error", string(body))
+	}
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	if string(body) != "/projects/1" {
+		t.Fatal("Returned url is incorrect should be /projects/0, is ", string(body))
+	}
 }
 
 func newProject(t *testing.T, user *User) (*Project) {
@@ -369,6 +415,7 @@ func deleteTask(t *testing.T, task *Task) {
 func TestIntegrationApi(t *testing.T) {
 
 	// Users
+	
 	createUsers()
 
 	user := newUser(t)
@@ -381,7 +428,16 @@ func TestIntegrationApi(t *testing.T) {
 		t.Fatal("User name should be ricky, but it is", user.Name)
 	}
 
+	//Login
+	
+	createLogin()
+
+	insertLogin(t, user)
+
+	loginUser(t, user)
+
 	// Projects
+	
 	createProjects()
 
 	project := newProject(t, user)
@@ -396,6 +452,7 @@ func TestIntegrationApi(t *testing.T) {
 	}
 
 	// Tasks
+	
 	createTasks()
 
 	task := newTask(t, user, project)
@@ -411,7 +468,7 @@ func TestIntegrationApi(t *testing.T) {
 	// TEARDOWN
 
 	// Tasks
-
+	
 	deleteTask(t, task)
 
 	tasks = getProjectTasks(t, project)
@@ -437,6 +494,10 @@ func TestIntegrationApi(t *testing.T) {
 	}
 
 	dropProjects()
+
+	// Login
+	
+	dropLogin()
 
 	// Users
 
