@@ -101,3 +101,15 @@ Now we will create our db.json file:
  "connection-str":"user=username password=password dbname=dbname"
 }
 ```
+
+# SQL Scripts
+
+Run the sql scripts for testing development:
+```bash
+psql -d kanelm -a -f sql/dev.sql
+```
+
+Run this to clean the db:
+```bash
+psql -d kanelm -a -f sql/clean.sql
+```

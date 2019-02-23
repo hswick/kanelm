@@ -60,12 +60,20 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-func loadQuery(filename string) (string) {
+func loadFile(filename string) (string) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return string(content[:])
+	return string(content[:])	
+}
+
+func loadQuery(filename string) (string) {
+	loadFile(filename)
+}
+
+func loadTemplate(filename string) (string) {
+	loadFile(filename)
 }
 
 type Conn struct {
@@ -617,12 +625,6 @@ func loginUserHandler()  func(http.ResponseWriter, *http.Request) {
 		}
 
 		http.Error(w, "Password is incorrect", 404)
-		
-	}
-}
-
-func loginPageHandler()  func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
 		
 	}
 }
