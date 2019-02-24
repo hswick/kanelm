@@ -32,6 +32,14 @@ type ActiveUser struct {
 	AccessToken string `json:"access-token"`
 }
 
+type ActiveProject struct {
+	ProjectId int64 `json:"project-id"`
+	ProjectName string `json:"project-name"`
+	UserId int64 `json:"user-id"`
+	UserName string `json:"user-name"`
+	AccessToken string `json:"access-token"`
+}
+
 type Users []User
 
 type Project struct {
@@ -77,10 +85,6 @@ func loadFile(filename string) (string) {
 }
 
 func loadQuery(filename string) (string) {
-	return loadFile(filename)
-}
-
-func loadTemplate(filename string) (string) {
 	return loadFile(filename)
 }
 
@@ -667,14 +671,69 @@ func projectsPageHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+func tasksPageHandler() func(http.ResponseWriter, *http.Request) {
+
+	t, err := template.ParseFiles("./static/tasks.html")
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		q := r.URL.Query()
+
+		if q["projectid"] != nil && q["projectname"] != nil && q["userid"] != nil && q["username"] != nil {		
+			projectid, err := strconv.ParseInt(q["projectid"][0], 10, 64)
+
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+
+			userid, err := strconv.ParseInt(q["userid"][0], 10, 64)
+
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			
+			
+			ap := &ActiveProject{ProjectId: projectid, ProjectName: q["projectname"][0], UserId: userid, UserName: q["username"][0], AccessToken: "12345"}
+			t.Execute(w, ap)
+			return
+		}
+
+		http.Error(w, "url query was incorrect missing proper parameters", 400)
+
+	}
+}
+
 func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 	http.HandleFunc("/login", loginUserHandler())
+
+	//Projects
 	http.HandleFunc("/projects", projectsPageHandler())
 	http.HandleFunc("/new/project", newProjectHandler())
 	http.HandleFunc("/edit/project", updateProjectNameHandler())
 	http.HandleFunc("/delete/project", deleteProjectHandler())
 	http.HandleFunc("/get/projects", getProjectsHandler())
+
+	// User
+	http.HandleFunc("/new/user", newUserHandler())
+	http.HandleFunc("/update/user/name", updateUserNameHandler())
+	http.HandleFunc("/get/user", getUserHandler())
+	http.HandleFunc("/get/users", getUsersHandler())
+	http.HandleFunc("/delete/user", deleteUserHandler())
+
+	//Tasks
+	http.HandleFunc("/tasks", tasksPageHandler())
+	http.HandleFunc("/get/project/tasks", getProjectTasksHandler())
+	http.HandleFunc("/new/task", newTaskHandler())
+	http.HandleFunc("/delete/task", deleteTaskHandler())
+	http.HandleFunc("/update/task/status", updateTaskStatusHandler())
+	
 }
 
 func main() {

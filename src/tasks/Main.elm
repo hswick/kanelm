@@ -27,16 +27,25 @@ type alias Task =
     , status : String
     }    
 
+
+type alias ActiveProject =
+    { projectId : Int
+    , projectName : String
+    , userId : Int
+    , userName : String
+    , accessToken : String
+    }
     
 type alias Model =
     { taskInput : String
     , tasks : List Task
+    , project : ActiveProject
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model "" [], getTasks )
+init : ActiveProject -> ( Model, Cmd Msg )
+init project =
+    ( Model "" [] project, getTasks )
 
 
 getOnGoingTasks : Model -> List Task

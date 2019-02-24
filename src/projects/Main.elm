@@ -259,10 +259,14 @@ projectsView model =
         )
 
 
-defaultProjectView : Project -> Html Msg
-defaultProjectView project =
+tasksUrl : Model -> Project -> String
+tasksUrl model project =
+    "/tasks?projectid=" ++ (String.fromInt project.id) ++ "&projectname=" ++ project.name ++ "&userid=" ++ (String.fromInt model.user.id) ++ "&username=" ++ model.user.name
+
+defaultProjectView : Model -> Project -> Html Msg
+defaultProjectView model project =
     div []
-        [ a [ href ("/tasks/" ++ String.fromInt project.id) ] [ text project.name ]
+        [ a [ href (tasksUrl model project) ] [ text project.name ]
         , button [ onClick <| EditProject project ] [ text "Edit" ]
         ]
 
@@ -279,7 +283,7 @@ editProjectView project =
 projectView : Project -> Model -> Html Msg
 projectView project model =
     if model.editProject == Nothing then
-        defaultProjectView project
+        defaultProjectView model project
     else        
         let
             ep = Maybe.withDefault emptyProject model.editProject
@@ -287,4 +291,4 @@ projectView project model =
             if ep.id == project.id then
                 editProjectView ep
             else
-                defaultProjectView project
+                defaultProjectView model project
