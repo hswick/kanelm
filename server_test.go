@@ -211,8 +211,8 @@ func loginUser(t *testing.T, user *User) {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	if string(body) != "/projects/1" {
-		t.Fatal("Returned url is incorrect should be /projects/0, is ", string(body))
+	if string(body) != "/projects?id=1&name=ricky" {
+		t.Fatal("Returned url is incorrect should be /projects?id=1&name=ricky, is", string(body))
 	}
 }
 
