@@ -24,36 +24,46 @@ main =
 type alias Project =
     { id : Int
     , name : String
-    , owner : String
+    , owner : Int    
     }
 
 
 type alias NewProject =
      { name : String
-     , owner : String
+     , owner : Int
      }
 
-    
-type alias Model =
-    { projectNameEdit : String
-    , ownerNameEdit : String
-    , projectNameNew : String
-    , newMode : Bool
-    , projects : List Project
-    , editProject : Int
-    , editMode : Bool
+
+type alias User =
+    { id : Int
+    , name : String
+    , accessToken : String
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { projectNameEdit = ""
-      , ownerNameEdit = ""
-      , projectNameNew = ""
+type alias Model =
+    { projectNameNew : String
+    , newMode : Bool
+    , projects : List Project
+    , editProject : Maybe Project
+    , user : User
+    , errorMessage : String
+    }
+
+
+emptyProject : Project
+emptyProject =
+    { id = -1, name = "", owner = -1 }
+
+        
+init : User -> ( Model, Cmd Msg )
+init user =
+    ( { projectNameNew = ""
       , newMode = False
       , projects = []
-      , editProject = 0
-      , editMode = False
+      , editProject = Nothing
+      , user = user
+      , errorMessage = ""
       }
       , getProjects
       )
@@ -62,7 +72,7 @@ init _ =
 getProjects : Cmd Msg
 getProjects =
     Http.get
-        { url = "/projects"
+        { url = "/get/projects"
         , expect = Http.expectJson GetProjects projectsDecoder
         }
 
@@ -70,22 +80,17 @@ getProjects =
 postNewProject : NewProject -> Cmd Msg
 postNewProject newProject =
     Http.post
-        { url = "/new/project/"
+        { url = "/new/project"
         , body = Http.jsonBody (newProjectEncoder newProject)
         , expect = Http.expectWhatever PostNewProject
         }
 
 
-editProject : Model -> Project
-editProject model =
-    { id = model.editProject, name = model.projectNameEdit, owner = model.ownerNameEdit }
-
-
-postEditProject : Model -> Cmd Msg
-postEditProject model =
+postEditProjectName : Project -> Cmd Msg
+postEditProjectName project =
     Http.post
-        { url = "/edit/project/"
-        , body = Http.jsonBody (projectEncoder (editProject model))
+        { url = "/edit/project"
+        , body = Http.jsonBody (projectEncoder project)
         , expect = Http.expectWhatever PostEditProject
         }
 
@@ -100,7 +105,7 @@ projectDecoder =
     Decode.map3 Project
         (Decode.field "id" Decode.int)
         (Decode.field "name" Decode.string)
-        (Decode.field "owner" Decode.string)
+        (Decode.field "created-by" Decode.int)
 
 
 projectEncoder : Project -> Encode.Value
@@ -108,7 +113,7 @@ projectEncoder project =
                Encode.object
                 [ ("id", Encode.int project.id)
                 , ("name", Encode.string project.name)
-                , ("owner", Encode.string project.owner)
+                , ("created-by", Encode.int project.owner)
                 ]
 
 
@@ -116,18 +121,36 @@ newProjectEncoder : NewProject -> Encode.Value
 newProjectEncoder newProject =
                Encode.object
                 [ ("name", Encode.string newProject.name)
-                , ("owner", Encode.string newProject.owner)
+                , ("created-by", Encode.int newProject.owner)
                 ]
 
 
 -- UPDATE
 
 
+toErrorMessage : Http.Error -> String
+toErrorMessage error =
+    case error of
+        Http.BadUrl message ->
+            message
+
+        Http.Timeout ->
+            "timeout"
+
+        Http.NetworkError ->
+            "network error"
+
+        Http.BadStatus status ->
+            "Bad Status Code: " ++ (String.fromInt status)
+
+        Http.BadBody message ->
+            message
+
+                
 type Msg
     = ProjectNameEdit String
-    | OwnerNameEdit String
     | GetProjects (Result Http.Error (List Project))
-    | EditProject Int
+    | EditProject Project
     | SaveEditProject
     | CancelEditProject
     | ProjectNew
@@ -137,52 +160,68 @@ type Msg
     | PostNewProject (Result Http.Error ())
     | PostEditProject (Result Http.Error ())
 
+      
+setProjectName : Project -> String -> Project
+setProjectName project newName =
+    { project | name = newName }
 
+        
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
        case msg of
             ProjectNew ->
                        ( { model | newMode = True }, Cmd.none )
 
-
-            EditProject id ->
-                 ( { model | editMode = True, editProject = id }, Cmd.none )
+            EditProject project ->
+                 ( { model | editProject = Just project }, Cmd.none )
 
             ProjectNameEdit projectName ->
-                          ( { model | projectNameEdit = projectName }, Cmd.none )
-
-            OwnerNameEdit ownerName ->
-                           ( { model | ownerNameEdit = ownerName }, Cmd.none )
+                let
+                    ep = Maybe.withDefault emptyProject model.editProject
+                in
+                    ( { model | editProject = Just (setProjectName ep projectName) }, Cmd.none )
 
             SaveEditProject ->
-                 ( model, postEditProject model )
+                let
+                    ep = Maybe.withDefault emptyProject model.editProject
+                in
+                    ( model, postEditProjectName ep )
 
             CancelEditProject ->
-                 ( { model | editMode = False, projectNameEdit = "", ownerNameEdit = "" }, Cmd.none )
-
+                 ( { model | editProject = Nothing }, Cmd.none )
 
             CancelNewProject ->
                  ( { model | newMode = False, projectNameNew = "" }, Cmd.none )
 
             SaveNewProject ->
-                 ( model, postNewProject { name = model.projectNameNew, owner = "FooBar" } )
+                 ( { model | newMode = False, projectNameNew = "" },  postNewProject { name = model.projectNameNew, owner = model.user.id } )
 
             ProjectNameNew p ->
                  ( { model | projectNameNew = p }, Cmd.none )
 
-            PostNewProject _ ->
-                 ( { model | projectNameNew = "", newMode = False }, Cmd.none )
+            PostNewProject result ->
+                case result of
+                    Ok _ ->
+                        ( { model | projectNameNew = "", newMode = False }, getProjects )
 
-            PostEditProject _ ->
-                 ( { model | editMode = False, projectNameEdit = "", ownerNameEdit = "" }, Cmd.none )
+                    Err err ->
+                        ( { model | errorMessage = (toErrorMessage err) }, Cmd.none )
+
+            PostEditProject result ->
+                case result of
+                    Ok _ ->
+                        ( { model | editProject = Nothing }, getProjects )
+
+                    Err err ->
+                        ( { model | errorMessage = (toErrorMessage err) }, Cmd.none )
 
             GetProjects result ->
                 case result of
                     Ok projects ->
                         ( { model | projects = projects }, Cmd.none )
 
-                    Err _ ->
-                        ( model, Cmd.none )
+                    Err err ->
+                        ( { model | errorMessage = (toErrorMessage err) }, Cmd.none )
 
 
 -- VIEW
@@ -191,7 +230,9 @@ update msg model =
 view : Model -> Html Msg
 view model =
      div []
-         [ button [ onClick ProjectNew ] [ text "+" ]
+         [ div [] [ text ("Welcome " ++ model.user.name) ]
+         , button [ onClick ProjectNew ] [ text "+" ]
+         , text model.errorMessage
          , newProjectView model
          , projectsView model
          ]
@@ -199,11 +240,14 @@ view model =
 
 newProjectView : Model -> Html Msg
 newProjectView model =
-               div []
-                   [ input [ value model.projectNameNew, onInput ProjectNameNew ] []
-                   , button [ onClick SaveNewProject ] [ text "Save" ]
-                   , button [ onClick CancelNewProject ] [ text "Cancel" ]
-                   ]
+    if model.newMode then
+        div []
+            [ input [ value model.projectNameNew, onInput ProjectNameNew ] []
+            , button [ onClick SaveNewProject ] [ text "Save" ]
+            , button [ onClick CancelNewProject ] [ text "Cancel" ]
+            ]
+     else
+         div [] [ text "Click + to create a new project" ]
 
 
 projectsView : Model -> Html Msg
@@ -213,20 +257,34 @@ projectsView model =
             (\project -> (projectView project model))
             model.projects
         )
-                
+
+
+defaultProjectView : Project -> Html Msg
+defaultProjectView project =
+    div []
+        [ a [ href ("/tasks/" ++ String.fromInt project.id) ] [ text project.name ]
+        , button [ onClick <| EditProject project ] [ text "Edit" ]
+        ]
+
+
+editProjectView : Project -> Html Msg
+editProjectView project =
+    div []
+        [ input [ value project.name, onInput ProjectNameEdit ] []        
+        , button [ onClick SaveEditProject ] [ text "Save" ]
+        , button [ onClick CancelEditProject ] [ text "Cancel" ]
+        ]        
+
 
 projectView : Project -> Model -> Html Msg
 projectView project model =
-            if model.editMode && model.editProject == project.id then
-               div []
-                   [ input [ value model.projectNameEdit, onInput ProjectNameEdit ] []
-                   , input [ value model.ownerNameEdit, onInput OwnerNameEdit ] []
-                   , button [ onClick SaveEditProject ] [ text "Save" ]
-                   , button [ onClick CancelEditProject ] [ text "Cancel" ]
-                   ]
+    if model.editProject == Nothing then
+        defaultProjectView project
+    else        
+        let
+            ep = Maybe.withDefault emptyProject model.editProject
+        in
+            if ep.id == project.id then
+                editProjectView ep
             else
-                div []
-                    [ text project.name
-                    , text project.owner
-                    , button [ onClick <| EditProject project.id ] []
-                    ]
+                defaultProjectView project

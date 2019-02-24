@@ -27,14 +27,17 @@ type alias Login =
 
 
 type alias Model =
-    Login
+    { usernameText : String
+    , passwordText : String
+    , errorMessage : String
+    }
 
-        
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Login "" "", Cmd.none )
+    ( Model "" "" "", Cmd.none )
 
-
+        
 postLogin : Login -> Cmd Msg
 postLogin login =
           Http.post
@@ -61,7 +64,7 @@ type Msg
      | Submit
      | PostLogin (Result Http.Error String)
 
-
+        
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
        case msg of
@@ -72,15 +75,15 @@ update msg model =
                               ( { model | passwordText = password }, Cmd.none )
 
             Submit ->
-             ( model, postLogin model )
+             ( model, postLogin { usernameText = model.usernameText, passwordText = model.passwordText} )
 
             PostLogin result ->
                       case result of
-                           Ok url ->
+                           Ok url ->                              
                               ( model, Nav.load url )
 
                            Err _ ->
-                               ( model, Cmd.none )
+                               ( { model | errorMessage = "An error has occurred" }, Cmd.none )
 
 
 -- VIEW
@@ -89,7 +92,8 @@ update msg model =
 view : Model -> Html Msg
 view model =
      div []
-     [ input [ onInput UsernameTextInput, placeholder "Username", value model.usernameText] []
-     , input [ onInput PasswordTextInput, placeholder "Password", value model.passwordText] []
-     , button [ onClick Submit ] [ text "Submit" ]
-     ]
+         [ input [ onInput UsernameTextInput, placeholder "Username", value model.usernameText ] []
+         , input [ onInput PasswordTextInput, placeholder "Password", value model.passwordText ] []
+         , button [ onClick Submit ] [ text "Submit" ]
+         , text model.errorMessage
+         ]

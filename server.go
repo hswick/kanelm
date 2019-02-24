@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"database/sql"
+	"html/template"
+	"strconv"
 	_ "github.com/lib/pq"
 )
 
@@ -24,12 +26,18 @@ type UserId struct {
 	Id int64 `json:"id"`
 }
 
+type ActiveUser struct {
+	Id int64 `json:"id"`
+	Name string `json:"name"`
+	AccessToken string `json:"access-token"`
+}
+
 type Users []User
 
 type Project struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
-	CreatedBy int64 `json:"created-by"` 
+	CreatedBy int64 `json:"created-by"`
 }
 
 type NewProject struct {
@@ -69,11 +77,11 @@ func loadFile(filename string) (string) {
 }
 
 func loadQuery(filename string) (string) {
-	loadFile(filename)
+	return loadFile(filename)
 }
 
 func loadTemplate(filename string) (string) {
-	loadFile(filename)
+	return loadFile(filename)
 }
 
 type Conn struct {
@@ -453,7 +461,7 @@ func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 		
 		defer rows.Close()
 
-		tasks := make(Tasks, 0)		
+		tasks := make(Tasks, 0)
 
 		for rows.Next() {
 			task := Task{}
@@ -576,7 +584,7 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func loginUserHandler()  func(http.ResponseWriter, *http.Request) {
+func loginUserHandler() func(http.ResponseWriter, *http.Request) {
 	query := loadQuery("sql/get_password.sql")
 	stmt, err := db.Prepare(query)
 	if err != nil {
@@ -620,7 +628,7 @@ func loginUserHandler()  func(http.ResponseWriter, *http.Request) {
 		}
 
 		if password == lr.Password {
-			fmt.Fprintf(w, "/projects/%d", id)
+			fmt.Fprintf(w, "/projects?id=%d&name=%s", id, lr.Username)
 			return
 		}
 
@@ -629,8 +637,44 @@ func loginUserHandler()  func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+func projectsPageHandler() func(http.ResponseWriter, *http.Request) {
+
+	t, err := template.ParseFiles("./static/projects.html")
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		q := r.URL.Query()
+		
+		if q["id"] != nil && q["name"] != nil {
+			id, err := strconv.ParseInt(q["id"][0], 10, 64)
+
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			
+			au := &ActiveUser{Id: id, Name: q["name"][0], AccessToken: "12345"}
+			t.Execute(w, au)
+			return
+		}
+
+		http.Error(w, "url query was incorrect missing proper parameters", 400)
+
+	}
+}
+
 func routes() {	
 	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.HandleFunc("/login", loginUserHandler())
+	http.HandleFunc("/projects", projectsPageHandler())
+	http.HandleFunc("/new/project", newProjectHandler())
+	http.HandleFunc("/edit/project", updateProjectNameHandler())
+	http.HandleFunc("/delete/project", deleteProjectHandler())
+	http.HandleFunc("/get/projects", getProjectsHandler())
 }
 
 func main() {
