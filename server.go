@@ -424,6 +424,58 @@ func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
 	}	
 }
 
+func getProjectOwnersHandler() func(http.ResponseWriter, *http.Request) {
+
+	query := loadQuery("sql/get_project_owners.sql")
+
+	return func (w http.ResponseWriter, r *http.Request) {
+
+		q := r.URL.Query()
+
+		if q["projectid"] != nil {
+			id, err := strconv.ParseInt(q["projectid"][0], 10, 64)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+
+			rows, err := db.Query(query, id)
+
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			defer rows.Close()
+
+			projectOwners := make(ProjectOwners, 0)
+
+			for rows.Next() {
+				projectOwner := ProjectOwner{}
+
+				err := rows.Scan(&projectOwner.ProjectId, &projectOwner.UserId)
+
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+
+				projectOwners = append(projectOwners, projectOwner)
+			}
+
+			err2 := rows.Err()
+
+			if err2 != nil {
+				http.Error(w, err2.Error(), 500)
+				return
+			}
+
+			json.NewEncoder(w).Encode(&projectOwners)
+
+		}
+	}
+}
+
 func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/delete_project.sql")
@@ -602,6 +654,83 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+func assignTaskHandler() func(http.ResponseWriter, *http.Request) {
+	query := loadQuery("sql/new_task_assignee.sql")
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return func (w http.ResponseWriter, r *http.Request) {
+		var t TaskAssignee
+
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+
+		jsonerr := json.NewDecoder(r.Body).Decode(&t)
+		if jsonerr != nil {
+			http.Error(w, jsonerr.Error(), 400)
+			return
+		}
+
+		_, dberr := stmt.Exec(t.TaskId, t.UserId)
+		if dberr != nil {
+			http.Error(w, dberr.Error(), 500)
+			return
+		}
+	}
+}
+
+func getTaskAssigneesHandler() func(http.ResponseWriter, *http.Request) {
+	query := loadQuery("sql/get_task_assignees_by_task.sql")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+
+		if q["taskid"] != nil {
+			id, err := strconv.ParseInt(q["taskid"][0], 10, 64)
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+
+			rows, err := db.Query(query, id)
+
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			defer rows.Close()
+
+			taskAssignees := make(TaskAssignees, 0)
+
+			for rows.Next() {
+				taskAssignee := TaskAssignee{}
+
+				err := rows.Scan(&taskAssignee.TaskId, &taskAssignee.UserId)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+
+				taskAssignees = append(taskAssignees, taskAssignee)
+			}
+
+			err2 := rows.Err()
+
+			if err2 != nil {
+				http.Error(w, err2.Error(), 500)
+				return
+			}
+
+			json.NewEncoder(w).Encode(&taskAssignees)
+		}
+	}
+}
+
 func loginUserHandler() func(http.ResponseWriter, *http.Request) {
 	query := loadQuery("sql/get_password.sql")
 	stmt, err := db.Prepare(query)
@@ -733,6 +862,7 @@ func routes() {
 	http.HandleFunc("/edit/project", updateProjectNameHandler())
 	http.HandleFunc("/delete/project", deleteProjectHandler())
 	http.HandleFunc("/get/projects", getProjectsHandler())
+	http.HandleFunc("/get/project/owners", getProjectOwnersHandler())
 
 	// User
 	http.HandleFunc("/new/user", newUserHandler())
@@ -747,6 +877,8 @@ func routes() {
 	http.HandleFunc("/new/task", newTaskHandler())
 	http.HandleFunc("/delete/task", deleteTaskHandler())
 	http.HandleFunc("/update/task/status", updateTaskStatusHandler())
+	http.HandleFunc("/new/task/assignee", assignTaskHandler())
+	http.HandleFunc("/get/task/assignees", getTaskAssigneesHandler())
 	
 }
 
