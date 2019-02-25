@@ -53,9 +53,9 @@ type alias Model =
 
 emptyProject : Project
 emptyProject =
-    { id = -1, name = "", owner = -1 }
+    { id = -1, name = "Oops, something has gone wrong!", owner = -1 }
 
-        
+
 init : User -> ( Model, Cmd Msg )
 init user =
     ( { projectNameNew = ""

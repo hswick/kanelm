@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"log"
 	"io/ioutil"
+	"net/url"
+	"strings"
 )
 
 func createTable(filename string) {
@@ -26,12 +28,20 @@ func createTasks() {
 	createTable("sql/create_tasks.sql")
 }
 
+func createTaskAssignees() {
+	createTable("sql/task_assignees.sql")
+}
+
 func createUsers() {
 	createTable("sql/create_users.sql")
 }
 
 func createProjects() {
 	createTable("sql/create_projects.sql")
+}
+
+func createProjectOwners() {
+	createTable("sql/create_project_owners.sql")
 }
 
 func createLogin() {
@@ -63,6 +73,14 @@ func dropProjects() {
 
 func dropLogin() {
 	dropTable("DROP TABLE IF EXISTS login")
+}
+
+func dropProjectOwners() {
+	dropTable("DROP TABLE IF EXISTS project_owners")
+}
+
+func dropTaskAssignees() {
+	dropTable("DROP TABLE IF EXISTS task_assignees")
 }
 
 func newUser(t *testing.T) (*User) {
@@ -243,10 +261,6 @@ func newProject(t *testing.T, user *User) (*Project) {
 		t.Fatal("Project does not have correct name")
 	}
 
-	if project.CreatedBy != user.Id {
-		t.Fatal("Project does not have correct created by, is", project.CreatedBy)
-	}
-
 	return &project
 }
 
@@ -289,7 +303,41 @@ func getProjects(t *testing.T) (Projects) {
 		t.Fatal("Decoding projects failed", err2.Error())
 	}
 
-	return projects	
+	return projects
+}
+
+func getProjectOwners(t *testing.T, project *Project) (ProjectOwners) {
+	server := httptest.NewServer(http.HandlerFunc(getProjectOwnersHandler()))
+	defer server.Close()
+
+	data := url.Values{"projectid": {string(project.Id)}}
+
+	req, err := http.NewRequest("GET", server.URL, strings.NewReader(data.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		t.Fatal("Get project owners failed with", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatal("Get project owners has error", string(body))
+	}	
+	
+	var projectOwners ProjectOwners
+	err2 := json.NewDecoder(resp.Body).Decode(&projectOwners)
+
+	if err2 != nil {
+		t.Fatal("Decoding project owners failed", err2.Error())
+	}
+
+	return projectOwners
 }
 
 func deleteProject(t *testing.T, project *Project) {
@@ -395,6 +443,56 @@ func getProjectTasks(t *testing.T, project *Project) (Tasks) {
 	return tasks
 }
 
+func getTaskAssignees(t *testing.T, task *Task) (TaskAssignees) {
+	server := httptest.NewServer(http.HandlerFunc(getTaskAssigneesHandler()))
+	defer server.Close()
+
+	data := url.Values{"taskid": {string(task.Id)}}
+	
+	req, err := http.NewRequest("GET", server.URL, strings.NewReader(data.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		t.Fatal("Get task assignees failed with", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatal("Get task assignees has error", string(body))
+	}	
+	
+	var taskAssignees TaskAssignees
+	err2 := json.NewDecoder(resp.Body).Decode(&taskAssignees)
+
+	if err2 != nil {
+		t.Fatal("Decoding task assignees failed", err2.Error())
+	}
+
+	return taskAssignees
+}
+
+func assignTask(t *testing.T, task *Task, user *User) {
+	server := httptest.NewServer(http.HandlerFunc(assignTaskHandler()))
+	defer server.Close()
+
+	res, _ := json.Marshal(&TaskAssignee{UserId: user.Id, TaskId: task.Id})
+	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
+
+	if err != nil {
+		t.Fatal("Assigning task failed with: ", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatal("Assign task has error", string(body))
+	}
+}
+
 func deleteTask(t *testing.T, task *Task) {
 	server := httptest.NewServer(http.HandlerFunc(deleteTaskHandler()))
 	defer server.Close()
@@ -451,6 +549,16 @@ func TestIntegrationApi(t *testing.T) {
 	
 	}
 
+	projectOwners := getProjectOwners(t, project)
+
+	if projectOwners[0].ProjectId != project.Id {
+		t.Fatal("Project owner project id is incorrect")
+	}
+
+	if projectOwners[0].UserId != user.Id {
+		t.Fatal("Project owner user id is incorrect")
+	}
+
 	// Tasks
 	
 	createTasks()
@@ -463,6 +571,18 @@ func TestIntegrationApi(t *testing.T) {
 
 	if tasks[0].Status != "OnGoing" {
 		t.Fatal("Task status should be OnGoing, but it is", tasks[0].Status)
+	}
+
+	assignTask(t, task, user)
+
+	taskAssignees := getTaskAssignees(t, task)
+
+	if taskAssignees[0].TaskId != task.Id {
+		t.Fatal("Task assignee task id is incorrect")
+	}
+
+	if taskAssignees[0].UserId != user.Id {
+		t.Fatal("Task assignee user id is incorrect")
 	}
 
 	// TEARDOWN
@@ -478,6 +598,16 @@ func TestIntegrationApi(t *testing.T) {
 	if n != 0 {
 		t.Fatal("Tasks length should be zero, but it is", n)
 	}
+
+	taskAssignees = getTaskAssignees(t, task)
+
+	n = len(taskAssignees)
+
+	if n != 0 {
+		t.Fatal("Task assignees length should be zero, but it is", n)
+	}
+
+	dropTaskAssignees()	
 	
 	dropTasks()
 
@@ -492,6 +622,16 @@ func TestIntegrationApi(t *testing.T) {
 	if n != 0 {
 		t.Fatal("Projects length should be zero, but it is", n)
 	}
+
+	projectOwners = getProjectOwners(t, project)
+
+	n = len(projectOwners)
+
+	if n != 0 {
+		t.Fatal("Project owners length should be zero, but it is", n)
+	}
+
+	dropProjectOwners()
 
 	dropProjects()
 

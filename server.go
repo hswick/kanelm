@@ -76,6 +76,20 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type ProjectOwner struct {
+	UserId int64 `json:"user-id"`
+	ProjectId int64 `json:"project-id"`
+}
+
+type ProjectOwners []ProjectOwner
+
+type TaskAssignee struct {
+	TaskId int64 `json:"task-id"`
+	UserId int64 `json:"user-id"`
+}
+
+type TaskAssignees []TaskAssignee
+
 func loadFile(filename string) (string) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
