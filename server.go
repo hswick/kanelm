@@ -77,8 +77,8 @@ type LoginRequest struct {
 }
 
 type ProjectOwner struct {
+	ProjectId int64 `json:"project-id"`	
 	UserId int64 `json:"user-id"`
-	ProjectId int64 `json:"project-id"`
 }
 
 type ProjectOwners []ProjectOwner
@@ -432,47 +432,55 @@ func getProjectOwnersHandler() func(http.ResponseWriter, *http.Request) {
 
 		q := r.URL.Query()
 
-		if q["projectid"] != nil {
-			id, err := strconv.ParseInt(q["projectid"][0], 10, 64)
-			if err != nil {
-				http.Error(w, err.Error(), 400)
-				return
-			}
+		if q["projectid"] == nil {
+			http.Error(w, "projectid param is unavailable", 400)
+			return
+		}
 
-			rows, err := db.Query(query, id)
+		id, err := strconv.ParseInt(q["projectid"][0], 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		rows, err := db.Query(query, id)
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		defer rows.Close()
+
+		projectOwners := make(ProjectOwners, 0)
+
+		for rows.Next() {
+			projectOwner := ProjectOwner{}
+
+			err := rows.Scan(&projectOwner.ProjectId, &projectOwner.UserId)
 
 			if err != nil {
 				http.Error(w, err.Error(), 500)
 				return
 			}
 
-			defer rows.Close()
-
-			projectOwners := make(ProjectOwners, 0)
-
-			for rows.Next() {
-				projectOwner := ProjectOwner{}
-
-				err := rows.Scan(&projectOwner.ProjectId, &projectOwner.UserId)
-
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-
-				projectOwners = append(projectOwners, projectOwner)
-			}
-
-			err2 := rows.Err()
-
-			if err2 != nil {
-				http.Error(w, err2.Error(), 500)
-				return
-			}
-
-			json.NewEncoder(w).Encode(&projectOwners)
-
+			projectOwners = append(projectOwners, projectOwner)
 		}
+
+		err2 := rows.Err()
+
+		if err2 != nil {
+			http.Error(w, err2.Error(), 500)
+			return
+		}
+
+		n := len(projectOwners)
+		if n == 0 {
+			http.Error(w, "project owners length is zero!", 400)
+		}
+
+		json.NewEncoder(w).Encode(&projectOwners)
+		
 	}
 }
 

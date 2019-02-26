@@ -8,8 +8,7 @@ import (
 	"bytes"
 	"log"
 	"io/ioutil"
-	"net/url"
-	"strings"
+	"strconv"
 )
 
 func createTable(filename string) {
@@ -29,7 +28,7 @@ func createTasks() {
 }
 
 func createTaskAssignees() {
-	createTable("sql/task_assignees.sql")
+	createTable("sql/create_task_assignees.sql")
 }
 
 func createUsers() {
@@ -111,7 +110,7 @@ func newUser(t *testing.T) (*User) {
 		t.Fatal("User does not have correct name")
 	}
 
-	return &user	
+	return &user
 }
 
 func updateUserName(t *testing.T, user *User) {
@@ -129,7 +128,6 @@ func updateUserName(t *testing.T, user *User) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		t.Fatal("Update user name failed with:", string(body))
 	}
-
 }
 
 func getUserById(t *testing.T, id *UserId) (*User) {
@@ -309,10 +307,12 @@ func getProjects(t *testing.T) (Projects) {
 func getProjectOwners(t *testing.T, project *Project) (ProjectOwners) {
 	server := httptest.NewServer(http.HandlerFunc(getProjectOwnersHandler()))
 	defer server.Close()
-
-	data := url.Values{"projectid": {string(project.Id)}}
-
-	req, err := http.NewRequest("GET", server.URL, strings.NewReader(data.Encode()))
+	
+	req, err := http.NewRequest("GET", server.URL, nil)
+	q := req.URL.Query()
+	q.Add("projectid", strconv.FormatInt(project.Id, 10))
+	req.URL.RawQuery = q.Encode()
+	
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,13 +328,13 @@ func getProjectOwners(t *testing.T, project *Project) (ProjectOwners) {
 	if resp.StatusCode != 200 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		t.Fatal("Get project owners has error", string(body))
-	}	
+	}
 	
 	var projectOwners ProjectOwners
 	err2 := json.NewDecoder(resp.Body).Decode(&projectOwners)
 
 	if err2 != nil {
-		t.Fatal("Decoding project owners failed", err2.Error())
+	 	t.Fatal("Decoding project owners failed", err2.Error())
 	}
 
 	return projectOwners
@@ -446,10 +446,12 @@ func getProjectTasks(t *testing.T, project *Project) (Tasks) {
 func getTaskAssignees(t *testing.T, task *Task) (TaskAssignees) {
 	server := httptest.NewServer(http.HandlerFunc(getTaskAssigneesHandler()))
 	defer server.Close()
-
-	data := url.Values{"taskid": {string(task.Id)}}
 	
-	req, err := http.NewRequest("GET", server.URL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("GET", server.URL, nil)
+	q := req.URL.Query()
+	q.Add("taskid", strconv.FormatInt(task.Id, 10))
+	req.URL.RawQuery = q.Encode()
+	
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,6 +540,8 @@ func TestIntegrationApi(t *testing.T) {
 	
 	createProjects()
 
+	createProjectOwners()
+
 	project := newProject(t, user)
 
 	updateProjectName(t, &Project{Id: project.Id, Name: "galaxy", CreatedBy: project.CreatedBy})
@@ -562,6 +566,8 @@ func TestIntegrationApi(t *testing.T) {
 	// Tasks
 	
 	createTasks()
+
+	createTaskAssignees()
 
 	task := newTask(t, user, project)
 
