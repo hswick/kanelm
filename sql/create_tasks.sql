@@ -1,6 +1,6 @@
 CREATE TABLE tasks(
  id serial PRIMARY KEY,
- project_id INTEGER REFERENCES projects(id),
+ project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
  created_by INTEGER REFERENCES users(id) NOT NULL,
  updated_by INTEGER REFERENCES users(id),
  name text,

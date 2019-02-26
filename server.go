@@ -474,11 +474,6 @@ func getProjectOwnersHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		n := len(projectOwners)
-		if n == 0 {
-			http.Error(w, "project owners length is zero!", 400)
-		}
-
 		json.NewEncoder(w).Encode(&projectOwners)
 		
 	}
