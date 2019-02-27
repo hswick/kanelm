@@ -1,0 +1,20 @@
+[roles]
+roles = ["admin", "project owner", "task owner", "user owner", "*"]
+
+[user]
+insert = ["admin"]
+delete = ["admin"]
+select = ["*"]
+update = ["user owner"]
+
+[project]
+insert = ["admin"]
+delete = ["admin", "project owner"]
+select = ["*"]
+update = ["admin", "project owner"]
+
+[task]
+insert = ["project owner"]
+delete = ["project owner", "task owner"]
+select = ["*"]
+update = ["project owner", "task owner"]

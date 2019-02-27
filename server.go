@@ -30,6 +30,7 @@ type ActiveUser struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
 	AccessToken string `json:"access-token"`
+	CreatedAt int `json:"created-at"`
 }
 
 type ActiveProject struct {
@@ -873,6 +874,7 @@ func routes() {
 }
 
 func main() {
+	auth.GarbageCollector()
 	routes()
 	fmt.Println("Running Kanelm server at port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
