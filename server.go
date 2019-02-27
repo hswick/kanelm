@@ -283,13 +283,6 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-
-	query = loadQuery("sql/delete_login.sql")
-	stmt2, err2 := db.Prepare(query)
-
-	if err2 != nil {
-		log.Fatal(err2.Error())
-	}
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 
@@ -300,12 +293,6 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 
 		var u User				
 		err := json.NewDecoder(r.Body).Decode(&u)
-
-		_, err = stmt2.Exec(u.Id)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
 
 		_, err = stmt.Exec(u.Id)
 		if err != nil {
