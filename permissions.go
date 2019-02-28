@@ -4,6 +4,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"log"
 	"io/ioutil"
+	"database/sql"
 )
 
 type set map[string]struct{}
@@ -21,30 +22,32 @@ func (s set) Add(str string) {
 func (s set) Intersect(s2 set) (set) {
 	var newSet set
 	for k := range s {
-		if s2[k] != nil {
+		_, ok := s2[k]
+		if ok {
 			newSet.Add(k)
 		}
 	}
 	return newSet
 }
 
-func (s []string) Set() (set) {
+func toSet(s []string) (set) {
 	st := make(set)
-	for _, s := range strings {
-		st.Add(s)
+	for _, v := range s {
+		st.Add(v)
 	}
 	return st
 }
 
-type Permissions map[string]map[string]struct{}
+type Permissions map[string]map[string]set
 
 type TempPermissions map[string]map[string][]string
 
 func (t TempPermissions) Permissions() (Permissions) {
-	var p Permissions
+	p := make(Permissions)
 	for k := range t {
+		p[k] = make(map[string]set)
 		for k2 := range t[k] {
-			p[k][k2] = t[k][k2].Set()
+			p[k][k2] = toSet(t[k][k2])
 		}
 	}
 	return p
@@ -58,7 +61,7 @@ func loadPermissions(filename string) (Permissions) {
 
 	var temp TempPermissions
 	if _, err := toml.Decode(string(tomlData), &temp); err != nil {
-		log.Fatal("Failed to decode: %s", err.Error())
+		log.Fatal(err.Error())
 	}
 
 	return temp.Permissions()
@@ -70,42 +73,27 @@ type RoleRequest struct {
 	Entity string
 	Action string
 	ActiveUserId int64
-	User *User	
-	Project *Project
-	Task *Task
+	UserId *int64	
+	ProjectId *int64
+	TaskId *int64
 }
 
-func prepareQuery(path string) string {
+func prepareQuery(path string) (*sql.Stmt) {
 	query := loadQuery(path)
 	stmt, err := db.Prepare(query)
 	if err != nil {
-		log.Fatal("Was unable to prepare query: %s", path)
+		log.Fatal("Was unable to prepare query: " + path + " " + err.Error())
 	}
 	return stmt
 }
 
-var checkAdminQuery string = prepareQuery("sql/check_admin.sql")
+var checkAdminQuery *sql.Stmt = prepareQuery("sql/check_admin.sql")	
 
-var checkProjectOwner string = prepareQuery("sql/check_project_owner.sql")
+var checkProjectOwnerQuery *sql.Stmt = prepareQuery("sql/check_project_owner.sql")
 
-var checkTaskOwner string = prepareQuery("sql/check_task_assignee.sql")
+var checkTaskOwnerQuery *sql.Stmt = prepareQuery("sql/check_task_assignee.sql")
 
 func (r *RoleRequest) Satisfied() (bool) {
-	if r.Entity == nil {
-		log.Fatal("RoleRequest is missing Entity field (type string)")
-	}
-
-	if r.Action == nil {
-		log.Fatal("RoleRequest is missing Action field (type string)")
-	}
-
-	if r.ActiveUserId == nil {
-		log.Fatal("RoleRequest is missing ActiveUserId field (type int64)")
-	}	
-	
-	if r.UserId == nil {
-		log.Fatal("RoleRequest is missing User field (type *User)")
-	}
 
 	entity := permissions[r.Entity]
 	if entity == nil {
@@ -120,13 +108,17 @@ func (r *RoleRequest) Satisfied() (bool) {
 	var roles set
 
 	var admin bool
-	err = checkAdminQuery.QueryRow(r.ActiveUserId).Scan(&admin)
+	err := checkAdminQuery.QueryRow(r.ActiveUserId).Scan(&admin)
 
 	if err != nil {
 		log.Fatal("Admin query failed")
 	}
 
-	if r.UserId == r.ActiveUserId {
+	if r.UserId == nil {
+		log.Fatal("User id query failed")
+	}
+
+	if *r.UserId == r.ActiveUserId {
 		roles.Add("user owner")
 	}
 

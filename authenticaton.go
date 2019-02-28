@@ -1,5 +1,8 @@
+package main
+
 import (
 	"github.com/robfig/cron"
+	"log"
 )
 
 type AuthCache map[string]*ActiveUser

@@ -1,1 +1,1 @@
-SELECT admin FROM users WHERE user_id = $1 LIMIT 1;
+SELECT admin_user FROM users WHERE id = $1 LIMIT 1;
