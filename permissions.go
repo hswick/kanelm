@@ -114,12 +114,10 @@ func (r *RoleRequest) Satisfied() (bool) {
 		log.Fatal("Admin query failed")
 	}
 
-	if r.UserId == nil {
-		log.Fatal("User id query failed")
-	}
-
-	if *r.UserId == r.ActiveUserId {
-		roles.Add("user owner")
+	if r.UserId != nil {
+		if *r.UserId == r.ActiveUserId {
+			roles.Add("user owner")
+		}
 	}
 
 	if r.ProjectId != nil {

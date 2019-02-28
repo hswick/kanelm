@@ -13,14 +13,8 @@ func (a AuthCache) Insert(token string, user *ActiveUser) {
 	a[token] = user
 }
 
-func (a AuthCache) Get(token string) (*ActiveUser) {
-	u := a[token]
-
-	if u == nil {
-		log.Fatal("Could not find UserId")
-	}
-
-	return u
+func (a AuthCache) Get(token string) (*ActiveUser, bool) {	
+	return a[token]
 }
 
 func (a AuthCache) UserId(token string) (int64) {

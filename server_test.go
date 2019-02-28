@@ -432,12 +432,12 @@ func deleteTask(t *testing.T, task *Task) {
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
 
 	if err != nil {
-		t.Fatal("Moving task failed with: ", err.Error())
+		t.Fatal("Deleting task failed with: ", err.Error())
 	}
 
 	if resp.StatusCode != 200 {
 		body, _ := ioutil.ReadAll(resp.Body)
-		t.Fatal("Move task has error", string(body))
+		t.Fatal("Delete task has error", string(body))
 	}
 }
 

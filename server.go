@@ -18,18 +18,9 @@ type User struct {
 	Name string `json:"name"`
 }
 
-type NewUser struct {
-	Name string `json:"name"`
-}
-
-type UserId struct {
-	Id int64 `json:"id"`
-}
-
 type ActiveUser struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
-	AccessToken string `json:"access-token"`
 	CreatedAt int `json:"created-at"`
 }
 
@@ -38,7 +29,6 @@ type ActiveProject struct {
 	ProjectName string `json:"project-name"`
 	UserId int64 `json:"user-id"`
 	UserName string `json:"user-name"`
-	AccessToken string `json:"access-token"`
 }
 
 type Users []User
@@ -133,6 +123,34 @@ func dbConnection() (* sql.DB) {
 
 var db *sql.DB = dbConnection()
 
+func getAuthToken(r *http.Request) string {
+	reqToken := r.Header.Get("Authorization")
+	if reqToken == "" {
+		return ""
+	}
+
+	return strings.Split(reqToken, "Bearer")[1] 
+	
+}
+
+func requestAuthorized(r *http.Request) (bool, string, int64) {
+	access_token := getAuthToken(r)
+	if access_token == "" {
+		return (false, "Authorization header was either not found or incorrect", 0)
+	}
+
+	au, ok := auth.Get(access_token)
+	if !ok {
+		return (false, "Access token is invalid", 0)
+	}
+
+	if !au.Expired() {
+		return (false, "Access token has expired", 0)
+	}
+
+	return (true, access_token, au.UserId)
+}
+
 func newUserHandler() func(http.ResponseWriter, *http.Request) {
 
 	query := loadQuery("sql/new_user.sql")
@@ -144,21 +162,44 @@ func newUserHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var nu NewUser
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
+
+		rr := &RoleRequest{
+			Entity: "user",
+			Action: "insert",
+			ActiveUserId: auId,
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
+		
+		var data map[string]string
 
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
 		}
 
-		err := json.NewDecoder(r.Body).Decode(&nu)
+		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
+		name, ok := data["name"]
+		if !ok {
+			http.Error(w, "json body missing name field", 500)
+			return
+		}
+
 		var id int64
-		err2 := stmt.QueryRow(nu.Name).Scan(&id)
+		err2 := stmt.QueryRow(name).Scan(&id)
 
 		if err2 != nil {
 			http.Error(w, err2.Error(), 500)
@@ -179,6 +220,12 @@ func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+
 		var u User
 
 		if r.Body == nil {
@@ -191,6 +238,18 @@ func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+
+		rr := &RoleRequest{
+			Entity: "user",
+			Action: "update",
+			ActiveUserId: auId,
+			UserId: u.Id,
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
 
 		_, dberr := stmt.Exec(u.Id, u.Name)
 		if dberr != nil {
@@ -210,21 +269,33 @@ func getUserHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var id UserId
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
 
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
 		}
+
+		var data map[string]int64		
 		
-		err := json.NewDecoder(r.Body).Decode(&id)
+		err := json.NewDecoder(r.Body).Decode(&data)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
+		v, ok := data["id"]
+		if !ok {
+			http.Error(w, "Please include id field with request body", 400)
+			return
+		}
+
 		var u User
-		err = stmt.QueryRow(id.Id).Scan(&u.Id, &u.Name)
+		err = stmt.QueryRow(v).Scan(&u.Id, &u.Name)
 
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -242,6 +313,12 @@ func getUsersHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
+		
 		users := make(Users, 0)
 
 		rows, err := db.Query(query)
@@ -287,20 +364,34 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+
+		rr := &RoleRequest{
+			Entity: "user",
+			Action: "delete",
+			ActiveUserId: auId,
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
+
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
 		}
 
-		var u User				
-		err := json.NewDecoder(r.Body).Decode(&u)
-
-		_, err = stmt.Exec(u.Id)
+		_, err = stmt.Exec(au.UserId)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-	}	
+	}
 }
 
 func newProjectHandler() func(http.ResponseWriter, *http.Request) {
@@ -313,6 +404,23 @@ func newProjectHandler() func(http.ResponseWriter, *http.Request) {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+
+		rr := &RoleRequest{
+			Entity: "project",
+			Action: "insert",
+			ActiveUserId: auId,
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
 
 		var np NewProject
 
@@ -336,7 +444,7 @@ func newProjectHandler() func(http.ResponseWriter, *http.Request) {
 		}
 				
 		json.NewEncoder(w).Encode(&Project{Id: id, Name: np.Name, CreatedBy: np.CreatedBy})
-	}	
+	}
 }
 
 func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
@@ -350,6 +458,12 @@ func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+		
 		var p Project
 
 		if r.Body == nil {
@@ -363,12 +477,24 @@ func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		rr := &RoleRequest{
+			Entity: "project",
+			Action: "update",
+			ActiveUserId: auId,
+			ProjectId: p.Id
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}
+
 		_, dberr := stmt.Exec(p.Id, p.Name)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
 		}
-	}	
+	}
 }
 
 func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
@@ -376,6 +502,12 @@ func getProjectsHandler() func(http.ResponseWriter, *http.Request) {
 	query := loadQuery("sql/get_projects.sql")
 
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
 
 		projects := make(Projects, 0)
 
@@ -418,6 +550,12 @@ func getProjectOwnersHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func (w http.ResponseWriter, r *http.Request) {
 
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+		
 		q := r.URL.Query()
 
 		if q["projectid"] == nil {
@@ -478,15 +616,39 @@ func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+		
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
 		}
 
-		var p Project				
-		err := json.NewDecoder(r.Body).Decode(&p)
+		var data map[string]int64				
+		err := json.NewDecoder(r.Body).Decode(&data)
 
-		_, err = stmt.Exec(p.Id)
+		projectId, ok := data["id"]
+		if !ok {
+			http.Error(w, "Please include id field with request body", 400)
+			return
+		}
+
+		rr := &RoleRequest{
+			Entity: "project",
+			Action: "delete",
+			ActiveUserId: au.UserId,
+			ProjectId: projectId
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}
+
+		_, err = stmt.Exec(projectId)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -500,12 +662,18 @@ func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ok, message, _ := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}		
+
 		if r.Body == nil {
 			http.Error(w, "Please send a body with your request", 400)
 			return
 		}
 
-		var p Project		
+		var p map[string]int64
 		err := json.NewDecoder(r.Body).Decode(&p)
 
 		if err != nil {
@@ -513,7 +681,13 @@ func getProjectTasksHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		rows, err := db.Query(query, p.Id)
+		projectId, ok := p["id"]
+		if !ok {
+			http.Error(w, "Please include a id field with request body", 400)
+			return
+		}
+
+		rows, err := db.Query(query, projectId)
 
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -559,6 +733,12 @@ func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
+
 		var nt NewTask
 
 		if r.Body == nil {
@@ -571,6 +751,18 @@ func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
+
+		rr := &RoleRequest{
+			Entity: "task",
+			Action: "insert",
+			ActiveUserId: auId,
+			ProjectId: nt.ProjectId
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
 
 		var id int64
 		err2 := stmt.QueryRow(nt.Name, "Todo", nt.ProjectId, nt.CreatedBy).Scan(&id)
@@ -594,12 +786,19 @@ func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 	}
 
 	return func (w http.ResponseWriter, r *http.Request) {
-		var t Task
+
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
 
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
-		}
+		}		
+		
+		var t map[string]int64
 
 		jsonerr := json.NewDecoder(r.Body).Decode(&t)
 		if jsonerr != nil {
@@ -607,7 +806,25 @@ func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, dberr := stmt.Exec(t.Id)
+		taskId, ok := t["id"]
+		if !ok {
+			http.Error(w, "Please include an id field in request body", 400)
+			return
+		}
+
+		rr := &RoleRequest{
+			Entity: "task",
+			Action: "delete",
+			ActiveUserId: au.UserId,
+			TaskId: taskId
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
+
+		_, dberr := stmt.Exec(taskId)
 		if dberr != nil {
 			http.Error(w, dberr.Error(), 500)
 			return
@@ -624,18 +841,37 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 	}
 	
 	return func (w http.ResponseWriter, r *http.Request) {
-		var t Task
+
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
 
 		if r.Body == nil {
 			http.Error(w, "Please send a request body", 400)
 			return
 		}
 
+		var t Task		
+
 		jsonerr := json.NewDecoder(r.Body).Decode(&t)
 		if jsonerr != nil {
 			http.Error(w, jsonerr.Error(), 400)
 			return
 		}
+
+		rr := &RoleRequest{
+			Entity: "task",
+			Action: "update",
+			ActiveUserId: auId,
+			TaskId: t.Id
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
+			return
+		}		
 
 		_, dberr := stmt.Exec(t.Id, t.Status)
 		if dberr != nil {
@@ -653,6 +889,13 @@ func assignTaskHandler() func(http.ResponseWriter, *http.Request) {
 	}
 
 	return func (w http.ResponseWriter, r *http.Request) {
+
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
+		
 		var t TaskAssignee
 
 		if r.Body == nil {
@@ -663,6 +906,18 @@ func assignTaskHandler() func(http.ResponseWriter, *http.Request) {
 		jsonerr := json.NewDecoder(r.Body).Decode(&t)
 		if jsonerr != nil {
 			http.Error(w, jsonerr.Error(), 400)
+			return
+		}
+
+		rr := &RoleRequest{
+			Entity: "task",
+			Action: "update",
+			ActiveUserId: auId,
+			TaskId: t.TaskId
+		}
+
+		if !rr.Satisfied() {
+			http.Error(w, "User role is not satisfied for this action", 404)
 			return
 		}
 
@@ -678,6 +933,13 @@ func getTaskAssigneesHandler() func(http.ResponseWriter, *http.Request) {
 	query := loadQuery("sql/get_task_assignees_by_task.sql")
 
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		ok, message, auId := requestAuthorized(r)
+		if !ok {
+			http.Error(w, message, 404)
+			return
+		}
+				
 		q := r.URL.Query()
 
 		if q["taskid"] != nil {
