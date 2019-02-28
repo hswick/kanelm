@@ -11,77 +11,6 @@ import (
 	"strconv"
 )
 
-func createTable(filename string) {
-	query := loadQuery(filename)
-
-	stmt, err := db.Prepare(query)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	stmt.Exec()	
-}
-
-func createTasks() {
-	createTable("sql/create_tasks.sql")
-}
-
-func createTaskAssignees() {
-	createTable("sql/create_task_assignees.sql")
-}
-
-func createUsers() {
-	createTable("sql/create_users.sql")
-}
-
-func createProjects() {
-	createTable("sql/create_projects.sql")
-}
-
-func createProjectOwners() {
-	createTable("sql/create_project_owners.sql")
-}
-
-func createLogin() {
-	createTable("sql/create_login.sql")
-}
-
-func dropTable(query string) {
-	stmt, err := db.Prepare("DROP TABLE IF EXISTS tasks")
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	stmt.Exec()
-	
-}
-
-func dropTasks() {
-	dropTable("DROP TABLE IF EXISTS tasks")
-}
-
-func dropUsers() {
-	dropTable("DROP TABLE IF EXISTS users")
-}
-
-func dropProjects() {
-	dropTable("DROP TABLE IF EXISTS projects")
-}
-
-func dropLogin() {
-	dropTable("DROP TABLE IF EXISTS login")
-}
-
-func dropProjectOwners() {
-	dropTable("DROP TABLE IF EXISTS project_owners")
-}
-
-func dropTaskAssignees() {
-	dropTable("DROP TABLE IF EXISTS task_assignees")
-}
-
 func newUser(t *testing.T) (*User) {
 	server := httptest.NewServer(http.HandlerFunc(newUserHandler()))
 	defer server.Close()
@@ -515,8 +444,6 @@ func deleteTask(t *testing.T, task *Task) {
 func TestIntegrationApi(t *testing.T) {
 
 	// Users
-	
-	createUsers()
 
 	user := newUser(t)
 
@@ -529,18 +456,12 @@ func TestIntegrationApi(t *testing.T) {
 	}
 
 	//Login
-	
-	createLogin()
 
 	insertLogin(t, user)
 
 	loginUser(t, user)
 
 	// Projects
-	
-	createProjects()
-
-	createProjectOwners()
 
 	project := newProject(t, user)
 
@@ -564,10 +485,6 @@ func TestIntegrationApi(t *testing.T) {
 	}
 
 	// Tasks
-	
-	createTasks()
-
-	createTaskAssignees()
 
 	task := newTask(t, user, project)
 
@@ -613,10 +530,6 @@ func TestIntegrationApi(t *testing.T) {
 		t.Fatal("Task assignees length should be zero, but it is", n)
 	}
 
-	dropTaskAssignees()	
-	
-	dropTasks()
-
 	// Projects
 
 	deleteProject(t, project)
@@ -637,14 +550,6 @@ func TestIntegrationApi(t *testing.T) {
 		t.Fatal("Project owners length should be zero, but it is", n)
 	}
 
-	dropProjectOwners()
-
-	dropProjects()
-
-	// Login
-	
-	dropLogin()
-
 	// Users
 
 	deleteUser(t, user)
@@ -656,6 +561,4 @@ func TestIntegrationApi(t *testing.T) {
 	if n != 0 {
 		t.Fatal("Users length should be zero, but it is", n)
 	}
-
-	dropUsers()
 }
