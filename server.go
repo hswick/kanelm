@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"html/template"
 	"strconv"
+	"strings"
 	_ "github.com/lib/pq"
 )
 
@@ -19,9 +20,13 @@ type User struct {
 }
 
 type ActiveUser struct {
-	Id int64 `json:"id"`
+	UserId int64 `json:"user-id"`
 	Name string `json:"name"`
 	CreatedAt int `json:"created-at"`
+}
+
+func (a *ActiveUser) Expired() bool {
+	return a.CreatedAt < 41
 }
 
 type ActiveProject struct {
@@ -136,19 +141,19 @@ func getAuthToken(r *http.Request) string {
 func requestAuthorized(r *http.Request) (bool, string, int64) {
 	access_token := getAuthToken(r)
 	if access_token == "" {
-		return (false, "Authorization header was either not found or incorrect", 0)
+		return false, "Authorization header was either not found or incorrect", 0
 	}
 
 	au, ok := auth.Get(access_token)
 	if !ok {
-		return (false, "Access token is invalid", 0)
+		return false, "Access token is invalid", 0
 	}
 
 	if !au.Expired() {
-		return (false, "Access token has expired", 0)
+		return false, "Access token has expired", 0
 	}
 
-	return (true, access_token, au.UserId)
+	return true, access_token, au.UserId
 }
 
 func newUserHandler() func(http.ResponseWriter, *http.Request) {
@@ -206,7 +211,7 @@ func newUserHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 				
-		json.NewEncoder(w).Encode(&User{Id: id, Name: nu.Name})
+		json.NewEncoder(w).Encode(&User{Id: id, Name: name})
 	}
 }
 
@@ -243,7 +248,7 @@ func updateUserNameHandler() func(http.ResponseWriter, *http.Request) {
 			Entity: "user",
 			Action: "update",
 			ActiveUserId: auId,
-			UserId: u.Id,
+			UserId: &u.Id,
 		}
 
 		if !rr.Satisfied() {
@@ -386,7 +391,7 @@ func deleteUserHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, err = stmt.Exec(au.UserId)
+		_, err = stmt.Exec(auId)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -481,7 +486,7 @@ func updateProjectNameHandler() func(http.ResponseWriter, *http.Request) {
 			Entity: "project",
 			Action: "update",
 			ActiveUserId: auId,
-			ProjectId: p.Id
+			ProjectId: &p.Id,
 		}
 
 		if !rr.Satisfied() {
@@ -616,7 +621,7 @@ func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
 	
 	return func (w http.ResponseWriter, r *http.Request) {
 
-		ok, message, _ := requestAuthorized(r)
+		ok, message, auId := requestAuthorized(r)
 		if !ok {
 			http.Error(w, message, 404)
 			return
@@ -639,8 +644,8 @@ func deleteProjectHandler() func(http.ResponseWriter, *http.Request) {
 		rr := &RoleRequest{
 			Entity: "project",
 			Action: "delete",
-			ActiveUserId: au.UserId,
-			ProjectId: projectId
+			ActiveUserId: auId,
+			ProjectId: &projectId,
 		}
 
 		if !rr.Satisfied() {
@@ -756,7 +761,7 @@ func newTaskHandler() func(http.ResponseWriter, *http.Request) {
 			Entity: "task",
 			Action: "insert",
 			ActiveUserId: auId,
-			ProjectId: nt.ProjectId
+			ProjectId: &nt.ProjectId,
 		}
 
 		if !rr.Satisfied() {
@@ -815,8 +820,8 @@ func deleteTaskHandler() func(http.ResponseWriter, *http.Request) {
 		rr := &RoleRequest{
 			Entity: "task",
 			Action: "delete",
-			ActiveUserId: au.UserId,
-			TaskId: taskId
+			ActiveUserId: auId,
+			TaskId: &taskId,
 		}
 
 		if !rr.Satisfied() {
@@ -865,7 +870,7 @@ func updateTaskStatusHandler() func(http.ResponseWriter, *http.Request) {
 			Entity: "task",
 			Action: "update",
 			ActiveUserId: auId,
-			TaskId: t.Id
+			TaskId: &t.Id,
 		}
 
 		if !rr.Satisfied() {
@@ -913,7 +918,7 @@ func assignTaskHandler() func(http.ResponseWriter, *http.Request) {
 			Entity: "task",
 			Action: "update",
 			ActiveUserId: auId,
-			TaskId: t.TaskId
+			TaskId: &t.TaskId,
 		}
 
 		if !rr.Satisfied() {
@@ -934,7 +939,7 @@ func getTaskAssigneesHandler() func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		ok, message, auId := requestAuthorized(r)
+		ok, message, _ := requestAuthorized(r)
 		if !ok {
 			http.Error(w, message, 404)
 			return
@@ -1057,7 +1062,7 @@ func projectsPageHandler() func(http.ResponseWriter, *http.Request) {
 				return
 			}
 			
-			au := &ActiveUser{Id: id, Name: q["name"][0], AccessToken: "12345"}
+			au := &ActiveUser{UserId: id, Name: q["name"][0]}
 			t.Execute(w, au)
 			return
 		}
@@ -1095,7 +1100,7 @@ func tasksPageHandler() func(http.ResponseWriter, *http.Request) {
 			}
 			
 			
-			ap := &ActiveProject{ProjectId: projectid, ProjectName: q["projectname"][0], UserId: userid, UserName: q["username"][0], AccessToken: "12345"}
+			ap := &ActiveProject{ProjectId: projectid, ProjectName: q["projectname"][0], UserId: userid, UserName: q["username"][0]}
 			t.Execute(w, ap)
 			return
 		}

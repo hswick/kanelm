@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"bytes"
-	"log"
 	"io/ioutil"
 	"strconv"
 )
@@ -15,7 +14,7 @@ func newUser(t *testing.T) (*User) {
 	server := httptest.NewServer(http.HandlerFunc(newUserHandler()))
 	defer server.Close()
 
-	nu := &NewUser{Name: "userfoo"}
+	var nu map[string]string
 	res, _ := json.Marshal(nu)
 
 	resp, err := http.Post(server.URL, "application/json", bytes.NewBuffer(res))
@@ -59,7 +58,7 @@ func updateUserName(t *testing.T, user *User) {
 	}
 }
 
-func getUserById(t *testing.T, id *UserId) (*User) {
+func getUserById(t *testing.T, id map[string]int64) (*User) {
 	server := httptest.NewServer(http.HandlerFunc(getUserHandler()))
 	defer server.Close()
 
@@ -449,7 +448,9 @@ func TestIntegrationApi(t *testing.T) {
 
 	updateUserName(t,  &User{Id: user.Id, Name: "ricky"})
 
-	user = getUserById(t, &UserId{Id: user.Id})
+	id := make(map[string]int64)
+	id["id"]=user.Id
+	user = getUserById(t, id)
 
 	if user.Name != "ricky" {
 		t.Fatal("User name should be ricky, but it is", user.Name)
