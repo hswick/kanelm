@@ -104,23 +104,17 @@ type Conn struct {
 }
 
 func dbConnection() (* sql.DB) {
-	rdr, err := os.Open("db.json")
-	if err != nil {
-		log.Fatal(err)
+	rdr, err := os.Open("db.json"); if err != nil {
+		log.Fatal(err.Error())
 	}
 
 	var c Conn
-
-	jsonerr := json.NewDecoder(rdr).Decode(&c)
-
-	if jsonerr != nil {
-		log.Fatal(jsonerr)
+	err = json.NewDecoder(rdr).Decode(&c); if err != nil {
+		log.Fatal(err.Error())
 	}
 
-	db, dberr := sql.Open(c.Driver, c.ConnectionStr)
-
-	if dberr != nil {
-		log.Fatal(dberr)
+	db, err = sql.Open(c.Driver, c.ConnectionStr); if err != nil {
+		log.Fatal(err.Error())
 	}
 	
 	return db
